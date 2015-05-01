@@ -2,7 +2,7 @@ package Catalyst::ActionRole::MethodSignatureDependencyInjection;
 
 use Moose::Role;
 
-our $VERSION = '0.001';
+our $VERSION = '0.002';
 
 sub _parse_dependencies {
   my ($self, $proto, $ctx, @args) = @_;
