@@ -1,0 +1,42 @@
+# NAME
+
+Catalyst::ActionRole::MethodSignatureDependencyInjection - Experimental Action Signature Dependency Injection
+
+# SYNOPSIS
+
+    package MyApp::Controller
+    use base 'Catalyst::Controller';
+
+    no warnings::illegalproto;
+
+    sub test_model($Ctx, $Req, $Res, $Data, $Params, $Query, Model::A, Model::B) 
+    :Local :Does(MethodSignatureDependencyInjection)
+    {
+      my ($self, $c, $Req, $Res, $Data, $Params, $Query, $A, $B) = @_;
+    }
+
+# DESCRIPTION
+
+Lets you declare required action dependencies via the method signature.
+
+This is a poorly documented, early access prototype.  The author reserves the
+right to totally change everything and potentially disavow all knowledge of it.
+Only report bugs if you are capable of offering a patch and discussion.
+
+Please note if any of the declared dependencies return undef, that will cause
+the action to not match.  This could probably be better warning wise...
+
+# SEE ALSO
+
+[Catalyst::Action](https://metacpan.org/pod/Catalyst::Action), [Catalyst](https://metacpan.org/pod/Catalyst), [warnings::illegalproto](https://metacpan.org/pod/warnings::illegalproto).
+
+# AUTHOR
+
+John Napiorkowski [email:jjnapiork@cpan.org](email:jjnapiork@cpan.org)
+
+# COPYRIGHT & LICENSE
+
+Copyright 2015, John Napiorkowski [email:jjnapiork@cpan.org](email:jjnapiork@cpan.org)
+
+This library is free software; you can redistribute it and/or modify it under
+the same terms as Perl itself.
