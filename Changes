@@ -5,6 +5,8 @@
     actionroles.
   - make it so you alwasy get '$c' since this I think is rather
     expected.
+  - added the subroutine attribute approach for people that fear
+    the prototype approach.
 
 0.002 - 2015-05-01
   - Fixed missing readme

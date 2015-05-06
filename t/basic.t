@@ -35,7 +35,21 @@ use Test::Most;
   no warnings::illegalproto;
 
   sub test_model ($Req, $Res, $BodyData, $BodyParams, $QueryParams, Model::A, Model::Z) 
-    :Local :Does(MethodSignatureDependencyInjection) 
+    :Local :Does(MethodSignatureDependencyInjection) UsePrototype(1)
+   {
+    my ($self, $Ctx, $Req, $Res, $Data, $Params, $Query, $A, $Z) = @_;
+
+    Test::Most::is ref($Ctx), 'MyApp';
+    Test::Most::is ref($Req), 'Catalyst::Request';
+    Test::Most::is ref($Res), 'Catalyst::Response';
+    Test::Most::is ref($A), 'MyApp::Model::A';
+    Test::Most::is ref($Z), 'MyApp::Model::Z';
+
+    $Ctx->res->body('test');
+  }
+
+  sub test_model2 :Local :Does(MethodSignatureDependencyInjection)
+    ExecuteArgsTemplate($Req, $Res, $BodyData, $BodyParams, $QueryParams, Model::A, Model::Z)
    {
     my ($self, $Ctx, $Req, $Res, $Data, $Params, $Query, $A, $Z) = @_;
 
@@ -81,7 +95,17 @@ use Catalyst::Test 'MyApp';
 }
 
 {
+  my ($res, $c) = ctx_request('/root/test_model2');
+
+  is ref($c->model('A')), 'MyApp::Model::A';
+  is $c->model('A')->foo, 'foo';
+  is $c->model('A')->aaa, 100;
+  is $c->model('Z')->bar, 'bar';
+  is $c->model('Z')->zzz, 200;
+}
+
+{
   ok my $res = request('/root/normal/111');
 }
 
-done_testing(14);
+done_testing(24);
