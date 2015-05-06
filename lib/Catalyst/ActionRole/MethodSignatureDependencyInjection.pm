@@ -36,7 +36,12 @@ has prototype => (
 
   sub _build_prototype {
     my ($self) = @_;
-    return prototype($self->code);
+
+    if($INC{'Function/Parameters.pm'}) {
+      return join ',',map {$_->type? $_->type->class : $_->name} Function::Parameters::info($self->code)->positional_required;
+    } else {
+      return prototype($self->code);
+    }
   }
 
 has template => (
@@ -64,7 +69,7 @@ sub _parse_dependencies {
   my $template = $self->template;
   foreach my $what ($template=~/($p2|$p)/gx) {
     $what =~ s/^\s+|\s+$//g; #trim
-    
+
     push @dependencies, $ctx->req if lc($what) eq '$req';
     push @dependencies, $ctx->res if lc($what) eq '$res';
     push @dependencies, $ctx->req->args if lc($what) eq '$args';
