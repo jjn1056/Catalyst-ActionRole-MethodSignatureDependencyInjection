@@ -4,20 +4,34 @@ Catalyst::ActionRole::MethodSignatureDependencyInjection - Experimental Action S
 
 # SYNOPSIS
 
+Attribute syntax:
+
+    package MyApp::Controller
+    use base 'Catalyst::Controller';
+
+    sub test_model :Local :Does(MethodSignatureDependencyInjection)
+      ExecuteArgsTemplate($Req, $Res, $BodyData, $BodyParams, $QueryParams, Model::A, Model::B)
+    {
+      my ($self, $c, $Req, $Res, $Data, $Params, $Query, $A, $B) = @_;
+    }
+
+Prototype syntax
+
     package MyApp::Controller
     use base 'Catalyst::Controller';
 
     no warnings::illegalproto;
 
-    sub test_model($Ctx, $Req, $Res, $Data, $Params, $Query, Model::A, Model::B) 
-    :Local :Does(MethodSignatureDependencyInjection)
+    sub test_model($Req, $Res, $BodyData, $BodyParams, $QueryParams, Model::A, Model::B)
+      :Local :Does(MethodSignatureDependencyInjection) UsePrototype(1)
     {
       my ($self, $c, $Req, $Res, $Data, $Params, $Query, $A, $B) = @_;
     }
 
-# DESCRIPTION
+# WARNING
 
-Lets you declare required action dependencies via the method signature.
+Lets you declare required action dependencies via the a subroutine attribute
+and additionally via the prototype (if you dare)
 
 This is a poorly documented, early access prototype.  The author reserves the
 right to totally change everything and potentially disavow all knowledge of it.
@@ -25,6 +39,100 @@ Only report bugs if you are capable of offering a patch and discussion.
 
 Please note if any of the declared dependencies return undef, that will cause
 the action to not match.  This could probably be better warning wise...
+
+# DESCRIPTION
+
+[Catalyst](https://metacpan.org/pod/Catalyst) when dispatching a request to an action calls the [Action::Class](https://metacpan.org/pod/Action::Class)
+execute method with the following arguments ($self, $c, @args).  This you likely
+already know (if you are a <Catalyst> programmer).
+
+This action role lets you describe an alternative 'template' to be used for
+what arguments go to the execute method.  This way instead of @args you can
+get a model, or a view, or something else.  The goal of this action role is
+to make your action bodies more concise and clear and to have your actions
+declare what they want.
+
+Additionally, when we build these arguments, we also check their values and
+require them to be true during the match/match\_captures phase.  This means
+you can actually use this to control how an action is matched.
+
+There are two ways to use this action role.  The default way is to describe
+your execute template using the 'ExecuteArgsTemplate' attribute.  The
+second is to enable UsePrototype (via the UsePrototype(1) attribute) and
+then you can declare your argument template via the method prototype.  You
+will of course need to use 'no warnings::illegalproto' for this to work.
+The intention here is to work toward something that would play nice with
+a system for method signatures like [Kavorka](https://metacpan.org/pod/Kavorka).
+
+If this sounds really verbose it is.  This distribution is likely going to
+be part of something larger that offers more sugar and less work, just it was
+clearly also something that could be broken out and hacked pn separately.
+If you use this you might for example set this action role in a base controller
+such that all your controllers get it (one example usage).
+
+Please note that you must still access your arguments via `@_`, this is not
+a method signature framework.
+
+# DEPENDENCY INJECTION
+
+You define your execute arguments as a positioned list (for now).  The system
+recognizes the following 'built ins' (you always get $self and $c, as you do
+in the current system).
+
+## $req
+
+The current [Catalyst::Request](https://metacpan.org/pod/Catalyst::Request)
+
+## $res
+
+The current [Catalyst::Response](https://metacpan.org/pod/Catalyst::Response)
+
+## $args
+
+The current an arrayref of the current args
+
+## @args
+
+An array of the current args.  Only makes sense if this is the last specified
+argument.
+
+## $arg0 .. $argN
+
+One of the indexed args, where $args0 => $args\[0\];
+
+## $bodyData
+
+$c->req->body\_data
+
+## $bodyParams
+
+$c->req->body\_parameters
+
+## $QueryParams
+
+$c->req->query\_parameters
+
+# Accessing Components
+
+You can request a [Catalyst](https://metacpan.org/pod/Catalyst) component (a model, view or controller).  You
+do this via \[Model||View||Controller\]::$component\_name.  For example if you
+have a model that you'd normally access like this:
+
+    $c->model("Schema::User");
+
+You would say "Model::Schema::User". For example:
+
+    ExecuteArgsTemplate(Model::Schema::User)
+
+Or via the prototype
+
+    sub myaction(Model::Schema::User) ...
+
+You can also pass arguments to your models.  For example:
+
+    ExecuteArgsTemplate(Model::UserForm<Model::User>)
+
+same as $c->model('UserForm', $c->model('User'));
 
 # SEE ALSO
 
