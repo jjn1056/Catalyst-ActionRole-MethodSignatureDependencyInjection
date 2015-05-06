@@ -34,7 +34,9 @@ use Test::Most;
 
   no warnings::illegalproto;
 
-  sub test_model($Ctx, $Req, $Res, $Data, $Params, $Query, Model::A, Model::Z) :Local :Does(MethodSignatureDependencyInjection) {
+  sub test_model ($Req, $Res, $BodyData, $BodyParams, $QueryParams, Model::A, Model::Z) 
+    :Local :Does(MethodSignatureDependencyInjection) 
+   {
     my ($self, $Ctx, $Req, $Res, $Data, $Params, $Query, $A, $Z) = @_;
 
     Test::Most::is ref($Ctx), 'MyApp';

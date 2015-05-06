@@ -2,7 +2,7 @@ package Catalyst::ActionRole::MethodSignatureDependencyInjection;
 
 use Moose::Role;
 
-our $VERSION = '0.002';
+our $VERSION = '0.003';
 
 sub _parse_dependencies {
   my ($self, $proto, $ctx, @args) = @_;
@@ -13,31 +13,19 @@ sub _parse_dependencies {
 
   foreach my $what ($proto=~/($p2|$p)/gx) {
     $what =~ s/^\s+|\s+$//g; #trim
-    push @dependencies, $ctx if $what eq '$Ctx';
-    push @dependencies, $ctx if $what eq '$ctx';
-    push @dependencies, $ctx if $what eq '$c';
-    push @dependencies, $ctx->req if $what eq '$req';
-    push @dependencies, $ctx->req if $what eq '$Req';
-    push @dependencies, $ctx->res if $what eq '$res';
-    push @dependencies, $ctx->res if $what eq '$Res';
-    push @dependencies, $ctx->log if $what eq '$log';
-    push @dependencies, $ctx->log if $what eq '$Log';
-    push @dependencies, $ctx->session if $what eq '$session';
-    push @dependencies, $ctx->session if $what eq '$Session';
-    push @dependencies, $ctx->req->body_data||+{} if $what eq '$Data';
-    push @dependencies, $ctx->req->body_data||+{}  if $what eq '$BodyData';
-    push @dependencies, $ctx->req->body_parameters if $what eq '$Params';
-    push @dependencies, $ctx->req->body_parameters if $what eq '$BodyParams';
-    push @dependencies, $ctx->req->query_parameters if $what eq '$Query';
-    push @dependencies, $ctx->req->query_parameters if $what eq '$QueryParams';
-    push @dependencies, $ctx->req->args if $what eq '$Args';
-    push @dependencies, $ctx->req->args if $what eq '$args';
+    push @dependencies, $ctx->req if lc($what) eq '$req';
+    push @dependencies, $ctx->res if lc($what) eq '$res';
+    push @dependencies, $ctx->log if lc($what) eq '$log';
+    push @dependencies, $ctx->req->args if lc($what) eq '$args';
+    push @dependencies, $ctx->req->body_data||+{}  if lc($what) eq '$bodydata';
+    push @dependencies, $ctx->req->body_parameters if lc($what) eq '$bodyparams';
+    push @dependencies, $ctx->req->query_parameters if lc($what) eq '$queryparams';
+
 
     #This will blow stuff up unless its the last...
-    push @dependencies, @{$ctx->req->args} if $what eq '@Args';
-    push @dependencies, @{$ctx->req->args} if $what eq '@args';
+    push @dependencies, @{$ctx->req->args} if lc($what) eq '@args';
 
-    if(defined(my $arg_index = ($what =~/^Arg(.+)$/)[0])) {
+    if(defined(my $arg_index = ($what =~/^\$Arg(.+)$/i)[0])) {
       push @dependencies, $ctx->req->args->[$arg_index];
     }
 
@@ -74,13 +62,12 @@ sub _parse_dependencies {
     @dependencies = ($ctx, @{$ctx->req->args});
   }
 
-  $ctx->stash(__method_signature_dependencies=>\@dependencies);
   return @dependencies;
 }
 
 around ['match', 'match_captures'] => sub {
-  my ($orig, $self, $ctx, $captures) = @_;
-  # ->match does not get args :( but ->match_captures get captures...
+  my ($orig, $self, $ctx, @args) = @_;
+  return 0 unless $self->$orig($ctx, @args);
   
   my $proto = prototype( $self->class ."::". $self->name);
   my @dependencies = $self->_parse_dependencies($proto, $ctx, @{$ctx->req->args});
@@ -89,13 +76,15 @@ around ['match', 'match_captures'] => sub {
     return 0 unless defined($dependency);
   }
 
+  $ctx->stash(__method_signature_dependencies=>\@dependencies);
+
   return 1;
 };
 
 around 'execute', sub {
   my ($orig, $self, $controller, $ctx, @args) = @_;
   my @dependencies = @{$ctx->stash->{__method_signature_dependencies}};
-  return $self->$orig($controller, @dependencies);
+  return $self->$orig($controller, $ctx, @dependencies);
 };
 
 1;
@@ -111,7 +100,7 @@ Catalyst::ActionRole::MethodSignatureDependencyInjection - Experimental Action S
 
   no warnings::illegalproto;
 
-  sub test_model($Ctx, $Req, $Res, $Data, $Params, $Query, Model::A, Model::B) 
+  sub test_model($Req, $Res, $BodyData, $BodyParams, $QueryParams, Model::A, Model::B) 
   :Local :Does(MethodSignatureDependencyInjection)
   {
     my ($self, $c, $Req, $Res, $Data, $Params, $Query, $A, $B) = @_;

@@ -1,5 +1,11 @@
 # This file documents the revision history for Perl extension Catalyst::ActionRole::MethodSignatureDependencyInjection.
 
+0.003 - 2015-05-03
+  - fixed a problem where we don't play nice with other
+    actionroles.
+  - make it so you alwasy get '$c' since this I think is rather
+    expected.
+
 0.002 - 2015-05-01
   - Fixed missing readme
 
