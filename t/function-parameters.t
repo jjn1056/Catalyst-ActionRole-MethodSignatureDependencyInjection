@@ -37,12 +37,15 @@ BEGIN {
   package MyApp::Controller::Root;
   use base 'Catalyst::Controller';
 
-  use Function::Parameters {
+  use Function::Parameters({
+    method => {defaults => 'method'},
     action => {
       attributes => ':method :Does(MethodSignatureDependencyInjection) UsePrototype(1)',
       shift => '$self',
       check_argument_types => 0,
-    }};
+      strict => 0,
+      default_arguments => 1,
+    }});
 
   action test_model($c, $Req, $Res, $BodyData, $BodyParams, $QueryParams, Model::A $A, Model::Z $Z) 
     :Local 
@@ -53,6 +56,10 @@ BEGIN {
     Test::Most::is ref($Res), 'Catalyst::Response';
     Test::Most::is ref($A), 'MyApp::Model::A';
     Test::Most::is ref($Z), 'MyApp::Model::Z';
+  }
+
+  method test($a) {
+    return $a;
   }
 
   $INC{'MyApp/Controller/Root.pm'} = __FILE__;
@@ -77,6 +84,7 @@ use Catalyst::Test 'MyApp';
   is $c->model('A')->aaa, 100;
   is $c->model('Z')->bar, 'bar';
   is $c->model('Z')->zzz, 200;
+  is $c->controller->test('foo'), 'foo';
 }
 
-done_testing(11);
+done_testing(12);

@@ -2,7 +2,7 @@ package Catalyst::ActionRole::MethodSignatureDependencyInjection;
 
 use Moose::Role;
 
-our $VERSION = '0.004';
+our $VERSION = '0.005';
 
 has use_prototype => (
   is=>'ro',
@@ -36,9 +36,10 @@ has prototype => (
 
   sub _build_prototype {
     my ($self) = @_;
-
     if($INC{'Function/Parameters.pm'}) {
-      return join ',',map {$_->type? $_->type->class : $_->name} Function::Parameters::info($self->code)->positional_required;
+      return join ',',
+        map {$_->type? $_->type->class : $_->name}
+          Function::Parameters::info($self->code)->positional_required;
     } else {
       return prototype($self->code);
     }
@@ -276,6 +277,40 @@ You can also pass arguments to your models.  For example:
     ExecuteArgsTemplate(Model::UserForm<Model::User>)
 
 same as $c->model('UserForm', $c->model('User'));
+
+=head1 Integration with Function::Parameters
+
+For those of you that would like to push the limits even harder, we have
+experimental support for L<Function::Parameters>.  You may use like in the
+following example.
+
+    package MyApp::Controller::Root;
+
+    use base 'Catalyst::Controller';
+
+    use Function::Parameters({
+      method => {defaults => 'method'},
+      action => {
+        attributes => ':method :Does(MethodSignatureDependencyInjection) UsePrototype(1)',
+        shift => '$self',
+        check_argument_types => 0,
+        strict => 0,
+        default_arguments => 1,
+      }});
+
+    action test_model($c, $res, Model::A $A, Model::Z $Z) 
+      :Local 
+    {
+      # ...
+      $res->body(...);
+    }
+
+    method test($a) {
+      return $a;
+    }
+
+Please note that currently you cannot use the 'parameterized' syntax for component
+injection (no Model::A<Model::Z> support).
 
 =head1 SEE ALSO
 
