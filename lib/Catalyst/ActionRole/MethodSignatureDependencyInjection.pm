@@ -2,7 +2,7 @@ package Catalyst::ActionRole::MethodSignatureDependencyInjection;
 
 use Moose::Role;
 
-our $VERSION = '0.005';
+our $VERSION = '0.006';
 
 has use_prototype => (
   is=>'ro',
