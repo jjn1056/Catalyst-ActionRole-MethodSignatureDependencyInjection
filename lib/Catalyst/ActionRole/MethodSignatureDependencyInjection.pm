@@ -68,6 +68,7 @@ sub _parse_dependencies {
   
   my @dependencies = ();
   my $template = $self->template;
+
   foreach my $what ($template=~/($p2|$p)/gx) {
     $what =~ s/^\s+|\s+$//g; #trim
 
@@ -80,12 +81,13 @@ sub _parse_dependencies {
 
     #This will blow stuff up unless its the last...
     push @dependencies, @{$ctx->req->args} if lc($what) eq '@args';
+    push @dependencies, @{$ctx->req->body_parameters} if lc($what) eq '%bodyparams';
 
     if(defined(my $arg_index = ($what =~/^\$Arg(.+)$/i)[0])) {
       push @dependencies, $ctx->req->args->[$arg_index];
     }
 
-    if(my $model = ($what =~/^Model\:\:(.+)$/)[0]) {
+    if(my $model = ($what =~/^Model\:\:(.+)\s+.+$/)[0]) {
       my @inner_deps = ();
       if(my $extracted = ($model=~/.+?<(.+)>$/)[0]) {
         @inner_deps = $self->_parse_dependencies($extracted, $ctx, @args);
@@ -94,10 +96,11 @@ sub _parse_dependencies {
 
       my ($ret, @rest) = $ctx->model($model, @inner_deps);
       warn "$model returns more than one arg" if @rest;
+      warn "$model is not defined, action will not match" unless defined $ret;
       push @dependencies, $ret;
     }
 
-    if(my $view = ($what =~/^View\:\:(.+)$/)[0]) {
+    if(my $view = ($what =~/^View\\:\:(.+)\s+.+$/)[0]) {
       my @inner_deps = ();
       if(my $extracted = ($view=~/.+?<(.+)>$/)[0]) {
         @inner_deps = $self->_parse_dependencies($extracted, $ctx, @args);
@@ -106,11 +109,15 @@ sub _parse_dependencies {
 
       my ($ret, @rest) = $ctx->view($view, @inner_deps);
       warn "$view returns more than one arg" if @rest;
+      warn "$view is not defined, action will not match" unless defined $ret;
       push @dependencies, $ret;
     }
 
-    if(my $controller = ($what =~/^Controller\:\:(.+)$/)[0]) {
-      push @dependencies, $ctx->controller($controller);
+    if(my $controller = ($what =~/^Controller\:\:(.+)\s+.+$/)[0]) {
+      my ($ret, @rest) = $ctx->controller($controller);
+      warn "$controller returns more than one arg" if @rest;
+      warn "$controller is not defined, action will not match" unless defined $ret;
+      push @dependencies, $ret;
     }
   }
 

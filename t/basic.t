@@ -28,7 +28,7 @@ use Test::Most;
   sub bar { 'bar' }
 
   $INC{'MyApp/Model/Z.pm'} = __FILE__;
-
+  
   package MyApp::Controller::Root;
   use base 'Catalyst::Controller';
 
