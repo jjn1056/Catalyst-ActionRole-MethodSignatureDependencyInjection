@@ -39,9 +39,6 @@ use Test::Most;
    {
     my ($self, $Ctx, $Req, $Res, $Data, $Params, $Query, $A, $Z) = @_;
 
-  use Devel::Dwarn; Dwarn map {ref $_} @_;
-
-
     Test::Most::is ref($Ctx), 'MyApp';
     Test::Most::is ref($Req), 'Catalyst::Request';
     Test::Most::is ref($Res), 'Catalyst::Response';
