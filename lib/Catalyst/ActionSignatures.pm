@@ -35,6 +35,8 @@ Catalyst::ActionSignatures - so you can stop looking at @_
 
 =head1 SYNOPSIS
 
+    package MyApp::Controller::Example;
+
     use Moose;
     use MooseX::MethodAttributes;
     use Catalyst::ActionSignatures;
@@ -44,6 +46,8 @@ Catalyst::ActionSignatures - so you can stop looking at @_
     sub test($Req, $Res, Model::A $A, Model::Z $Z) :Local {
         # Stuff...
     }
+
+    __PACKAGE__->meta->make_immutable;
 
 =head1 DESCRIPTION
 
