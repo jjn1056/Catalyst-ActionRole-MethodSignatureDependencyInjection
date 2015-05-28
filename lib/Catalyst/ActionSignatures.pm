@@ -8,7 +8,7 @@ around 'callback', sub {
   my ($orig, $self, $offset, $inject) = @_;
 
   my @parts = map { $_=~s/^.*([\$\%])/$1/; $_ } split ',', $inject;
-  my $signature = join(',', (@parts));
+  my $signature = join(',', ('$self', @parts));
 
   $self->$orig($offset, $signature);
 
@@ -17,7 +17,7 @@ around 'callback', sub {
   my $linestr = B::Hooks::Parser::get_linestr();
   my ($attribute_area) = ($linestr =~m/\)(.*){/);
 
-  # If there's anything in the attribute area, we assume a catalys action...
+  # If there's anything in the attribute area, we assume a catalyst action...
   # Sorry thats th best I can do for now, patches to make it smarter very 
   # welcomed.
 
@@ -51,6 +51,11 @@ Lets you declare required action dependencies via the method signature.
 
 This subclasses L<signatures> to allow you a more concise approach to
 creating your controllers.
+
+For actions and regular controller methods, "$self" is implicitly injected,
+but '$c' is not.  You should add that to the method signature if you need it
+although you are encouraged to name your dependencies rather than hang it all
+after $c.
 
 =head1 SEE ALSO
 

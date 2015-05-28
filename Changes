@@ -1,5 +1,10 @@
 # This file documents the revision history for Perl extension Catalyst::ActionRole::MethodSignatureDependencyInjection.
 
+0.007 - 2015-05-28
+  - New support for signatures via Catalyst::ActionSignatures.
+  - You must now declare $c if you need it (this is a breaking change
+    from earlier releases.  I promise I won't do this again.
+
 0.006 - 2015-05-18
   - Added missing test dependency
 

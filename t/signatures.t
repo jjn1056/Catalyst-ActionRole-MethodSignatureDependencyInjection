@@ -39,7 +39,7 @@ use Test::Most;
 
   has aaa => (is=>'ro', required=>1, default=>100);
   
-  sub test($self, $c, $Req, $Res, Model::A $A, Model::Z $Z) :Local {
+  sub test($c, $Req, $Res, Model::A $A, Model::Z $Z) :Local {
     Test::Most::is ref($c), 'MyApp';
     Test::Most::is ref($Req), 'Catalyst::Request';
     Test::Most::is ref($Res), 'Catalyst::Response';
@@ -49,7 +49,7 @@ use Test::Most;
     $c->res->body($self->regular(200));
   }
 
-  sub regular($self, $arg) {
+  sub regular($arg) {
     return "${\$self->aaa} $arg";
   }
 

@@ -2,7 +2,7 @@ package Catalyst::ActionRole::MethodSignatureDependencyInjection;
 
 use Moose::Role;
 
-our $VERSION = '0.006';
+our $VERSION = '0.007';
 
 has use_prototype => (
   is=>'ro',
@@ -72,6 +72,8 @@ sub _parse_dependencies {
   foreach my $what ($template=~/($p2|$p)/gx) {
     $what =~ s/^\s+|\s+$//g; #trim
 
+    push @dependencies, $ctx if lc($what) eq '$ctx';
+    push @dependencies, $ctx if lc($what) eq '$c';
     push @dependencies, $ctx->req if lc($what) eq '$req';
     push @dependencies, $ctx->res if lc($what) eq '$res';
     push @dependencies, $ctx->req->args if lc($what) eq '$args';
@@ -87,7 +89,7 @@ sub _parse_dependencies {
       push @dependencies, $ctx->req->args->[$arg_index];
     }
 
-    if(my $model = ($what =~/^Model\:\:(.+)\s+.+$/)[0]) {
+    if(my $model = ($what =~/^Model\:\:(.+)\s+.+$/)[0] || ($what =~/^Model\:\:(.+)/)[0]) {
       my @inner_deps = ();
       if(my $extracted = ($model=~/.+?<(.+)>$/)[0]) {
         @inner_deps = $self->_parse_dependencies($extracted, $ctx, @args);
@@ -100,7 +102,7 @@ sub _parse_dependencies {
       push @dependencies, $ret;
     }
 
-    if(my $view = ($what =~/^View\\:\:(.+)\s+.+$/)[0]) {
+    if(my $view = ($what =~/^View\\:\:(.+)\s+.+$/)[0] || ($what =~/^View\:\:(.+)\s+.+$/)[0]) {
       my @inner_deps = ();
       if(my $extracted = ($view=~/.+?<(.+)>$/)[0]) {
         @inner_deps = $self->_parse_dependencies($extracted, $ctx, @args);
@@ -113,7 +115,7 @@ sub _parse_dependencies {
       push @dependencies, $ret;
     }
 
-    if(my $controller = ($what =~/^Controller\:\:(.+)\s+.+$/)[0]) {
+    if(my $controller = ($what =~/^Controller\:\:(.+)\s+.+$/)[0] || ($what =~/^Controller\:\:(.+)\s+.+$/)[0]) {
       my ($ret, @rest) = $ctx->controller($controller);
       warn "$controller returns more than one arg" if @rest;
       warn "$controller is not defined, action will not match" unless defined $ret;
@@ -144,7 +146,9 @@ around ['match', 'match_captures'] => sub {
 around 'execute', sub {
   my ($orig, $self, $controller, $ctx, @args) = @_;
   my @dependencies = @{$ctx->stash->{__method_signature_dependencies}};
-  return $self->$orig($controller, $ctx, @dependencies);
+
+
+  return $self->$orig($controller, @dependencies);
 };
 
 1;
@@ -161,7 +165,7 @@ Attribute syntax:
   use base 'Catalyst::Controller';
 
   sub test_model :Local :Does(MethodSignatureDependencyInjection)
-    ExecuteArgsTemplate($Req, $Res, $BodyData, $BodyParams, $QueryParams, Model::A, Model::B)
+    ExecuteArgsTemplate($c, $Req, $Res, $BodyData, $BodyParams, $QueryParams, Model::A, Model::B)
   {
     my ($self, $c, $Req, $Res, $Data, $Params, $Query, $A, $B) = @_;
   }
@@ -173,7 +177,7 @@ Prototype syntax
 
   no warnings::illegalproto;
 
-  sub test_model($Req, $Res, $BodyData, $BodyParams, $QueryParams, Model::A, Model::B)
+  sub test_model($c, $Req, $Res, $BodyData, $BodyParams, $QueryParams, Model::A, Model::B)
     :Local :Does(MethodSignatureDependencyInjection) UsePrototype(1)
   {
     my ($self, $c, $Req, $Res, $Data, $Params, $Query, $A, $B) = @_;
@@ -195,7 +199,7 @@ the action to not match.  This could probably be better warning wise...
 
 L<Catalyst> when dispatching a request to an action calls the L<Action::Class>
 execute method with the following arguments ($self, $c, @args).  This you likely
-already know (if you are a <Catalyst> programmer).
+already know (if you are a L<Catalyst> programmer).
 
 This action role lets you describe an alternative 'template' to be used for
 what arguments go to the execute method.  This way instead of @args you can
@@ -227,8 +231,14 @@ a method signature framework.
 =head1 DEPENDENCY INJECTION
 
 You define your execute arguments as a positioned list (for now).  The system
-recognizes the following 'built ins' (you always get $self and $c, as you do
-in the current system).
+recognizes the following 'built ins' (you always get $self automatically).
+
+=head2 $c
+
+=head2 $ctx
+
+The current context.  You are encouraged to more clearly name your action
+dependencies, but its here if you need it.
 
 =head2 $req
 
