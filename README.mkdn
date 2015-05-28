@@ -33,9 +33,13 @@ Prototype syntax
 Lets you declare required action dependencies via the a subroutine attribute
 and additionally via the prototype (if you dare)
 
-This is a poorly documented, early access prototype.  The author reserves the
+This is a weakly documented, early access prototype.  The author reserves the
 right to totally change everything and potentially disavow all knowledge of it.
 Only report bugs if you are capable of offering a patch and discussion.
+
+**UPDATE** This module is starting to stablize, and I'd be interested in seeing
+people use it and getting back to me on it.  But I do recommend using it only
+if you feel like its code you understand.
 
 Please note if any of the declared dependencies return undef, that will cause
 the action to not match.  This could probably be better warning wise...
@@ -71,7 +75,8 @@ If you use this you might for example set this action role in a base controller
 such that all your controllers get it (one example usage).
 
 Please note that you must still access your arguments via `@_`, this is not
-a method signature framework.
+a method signature framework.  You can take a look at [Catalyst::ActionSignatures](https://metacpan.org/pod/Catalyst::ActionSignatures)
+for a system that bundles this all up more neatly.
 
 # DEPENDENCY INJECTION
 
@@ -176,7 +181,8 @@ injection (no Model::Model::Z support).
 
 # SEE ALSO
 
-[Catalyst::Action](https://metacpan.org/pod/Catalyst::Action), [Catalyst](https://metacpan.org/pod/Catalyst), [warnings::illegalproto](https://metacpan.org/pod/warnings::illegalproto).
+[Catalyst::Action](https://metacpan.org/pod/Catalyst::Action), [Catalyst](https://metacpan.org/pod/Catalyst), [warnings::illegalproto](https://metacpan.org/pod/warnings::illegalproto),
+[Catalyst::ActionSignatures](https://metacpan.org/pod/Catalyst::ActionSignatures)
 
 # AUTHOR
 
@@ -193,6 +199,6 @@ the same terms as Perl itself.
 
 Hey! **The above document had some coding errors, which are explained below:**
 
-- Around line 329:
+- Around line 334:
 
     Deleting unknown formatting code A<>

@@ -188,9 +188,13 @@ Prototype syntax
 Lets you declare required action dependencies via the a subroutine attribute
 and additionally via the prototype (if you dare)
 
-This is a poorly documented, early access prototype.  The author reserves the
+This is a weakly documented, early access prototype.  The author reserves the
 right to totally change everything and potentially disavow all knowledge of it.
 Only report bugs if you are capable of offering a patch and discussion.
+
+B<UPDATE> This module is starting to stablize, and I'd be interested in seeing
+people use it and getting back to me on it.  But I do recommend using it only
+if you feel like its code you understand.
 
 Please note if any of the declared dependencies return undef, that will cause
 the action to not match.  This could probably be better warning wise...
@@ -226,7 +230,8 @@ If you use this you might for example set this action role in a base controller
 such that all your controllers get it (one example usage).
 
 Please note that you must still access your arguments via C<@_>, this is not
-a method signature framework.
+a method signature framework.  You can take a look at L<Catalyst::ActionSignatures>
+for a system that bundles this all up more neatly.
 
 =head1 DEPENDENCY INJECTION
 
@@ -331,7 +336,8 @@ injection (no Model::A<Model::Z> support).
 
 =head1 SEE ALSO
 
-L<Catalyst::Action>, L<Catalyst>, L<warnings::illegalproto>.
+L<Catalyst::Action>, L<Catalyst>, L<warnings::illegalproto>,
+L<Catalyst::ActionSignatures>
 
 =head1 AUTHOR
  

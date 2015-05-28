@@ -44,7 +44,12 @@ Catalyst::ActionSignatures - so you can stop looking at @_
     extends 'Catalyst::Controller';
 
     sub test($Req, $Res, Model::A $A, Model::Z $Z) :Local {
-        # Stuff...
+        # has $self implicitly
+        $Res->body('Look ma, no @_!')
+    }
+
+    sub regular_method ($arg1, $arg1) {
+      # has $self implicitly
     }
 
     __PACKAGE__->meta->make_immutable;
@@ -54,7 +59,9 @@ Catalyst::ActionSignatures - so you can stop looking at @_
 Lets you declare required action dependencies via the method signature.
 
 This subclasses L<signatures> to allow you a more concise approach to
-creating your controllers.
+creating your controllers.  This injects your method signature into the
+code so you don't need to use @_.  You should read L<signatures> to be
+aware of any limitations.
 
 For actions and regular controller methods, "$self" is implicitly injected,
 but '$c' is not.  You should add that to the method signature if you need it
