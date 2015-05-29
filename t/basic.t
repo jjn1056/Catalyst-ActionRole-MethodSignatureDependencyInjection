@@ -62,6 +62,12 @@ use Test::Most;
     $Ctx->res->body('test');
   }
 
+  sub test_arg($ctx, $res, Arg0) :Local Args(1) Does(MethodSignatureDependencyInjection) UsePrototype(1)
+  {
+    my ($self, $c, $res, $arg) = @_;
+    $res->body($arg);
+  }
+
   sub normal :Local Args(1) {
     my ($self, $c, $arg) = @_;
 
@@ -108,4 +114,10 @@ use Catalyst::Test 'MyApp';
   ok my $res = request('/root/normal/111');
 }
 
-done_testing(24);
+{
+  ok my $res = request('/root/test_arg/111');
+  is $res->content, '111';
+}
+
+
+done_testing(26);

@@ -49,6 +49,10 @@ use Test::Most;
     $c->res->body($self->regular(200));
   }
 
+  sub test_arg($res, Arg0 $id, Arg1 $pid, Model::A $a) :Local Args(2) {
+    $res->body("$id+$pid");
+  }
+
   sub regular($arg) {
     return "${\$self->aaa} $arg";
   }
@@ -56,6 +60,14 @@ use Test::Most;
   sub old_school {
     return 1;
   }
+
+  sub chain(Model::A $a, Capture0 $id, $res) :Chained(/) CaptureArgs(1) {
+    Test::Most::is $id, 100;
+  }
+
+    sub endchain($res, Arg0 $name) :Chained(chain) Args(1) {
+      $res->body($name);
+    }
   
   package MyApp;
   use Catalyst;
@@ -79,6 +91,16 @@ use Catalyst::Test 'MyApp';
   is $c->model('Z')->zzz, 200;
 
   warn $res->content;
+}
+
+{
+  ok my $res = request('/example/test_arg/111/222');
+  is $res->content, '111+222';
+}
+
+{
+  ok my $res = request('/chain/100/endchain/john');
+  is $res->content, 'john';
 }
 
 done_testing;

@@ -57,8 +57,6 @@ has template => (
       $self->prototype : $self->execute_args_template;
   }
 
-
-
 sub _parse_dependencies {
   my ($self, $ctx, @args) = @_;
 
@@ -69,8 +67,8 @@ sub _parse_dependencies {
   my @dependencies = ();
   my $template = $self->template;
 
-  foreach my $what ($template=~/($p2|$p)/gx) {
-    $what =~ s/^\s+|\s+$//g; #trim
+  my @what = map { $_ =~ s/^\s+|\s+$//g; $_ } ($template=~/($p2|$p)/gx);
+  while(my $what = shift @what) {
 
     push @dependencies, $ctx if lc($what) eq '$ctx';
     push @dependencies, $ctx if lc($what) eq '$c';
@@ -85,8 +83,13 @@ sub _parse_dependencies {
     push @dependencies, @{$ctx->req->args} if lc($what) eq '@args';
     push @dependencies, @{$ctx->req->body_parameters} if lc($what) eq '%bodyparams';
 
-    if(defined(my $arg_index = ($what =~/^\$Arg(.+)$/i)[0])) {
+    if(defined(my $arg_index = ($what =~/^\$?Arg(\d+).*$/i)[0])) {
       push @dependencies, $ctx->req->args->[$arg_index];
+    }
+
+    if(defined(my $capture_index = ($what =~/^\$?Capture(\d+).*$/i)[0])) {
+      # If they are asking for captures, we look at @args.. sorry
+      push @dependencies, $args[$capture_index];
     }
 
     if(my $model = ($what =~/^Model\:\:(.+)\s+.+$/)[0] || ($what =~/^Model\:\:(.+)/)[0]) {
@@ -131,22 +134,27 @@ sub _parse_dependencies {
 }
 
 around ['match', 'match_captures'] => sub {
-  my ($orig, $self, $ctx, @args) = @_;
-  return 0 unless $self->$orig($ctx, @args);
-  
-  my @dependencies = $self->_parse_dependencies($ctx, @{$ctx->req->args});
+  my ($orig, $self, $ctx, $args) = @_;
+  return 0 unless $self->$orig($ctx, $args);
+
+  # For chain captures, we find @args, but not for args...
+  # So we have to normalize.
+  my @args = scalar(@{$args||[]}) ?  @{$args||[]} : @{$ctx->req->args||[]};
+  my @dependencies = $self->_parse_dependencies($ctx, @args);
+
   foreach my $dependency (@dependencies) {
     return 0 unless defined($dependency);
   }
 
-  $ctx->stash(__method_signature_dependencies=>\@dependencies);
+  my $stash_key = $self .'__method_signature_dependencies';
+  $ctx->stash($stash_key=>\@dependencies);
   return 1;
 };
 
 around 'execute', sub {
   my ($orig, $self, $controller, $ctx, @args) = @_;
-  my @dependencies = @{$ctx->stash->{__method_signature_dependencies}};
-
+  my $stash_key = $self .'__method_signature_dependencies';
+  my @dependencies = @{$ctx->stash->{$stash_key}};
 
   return $self->$orig($controller, @dependencies);
 };
@@ -255,7 +263,7 @@ The current L<Catalyst::Response>
 
 =head2 $args
 
-The current an arrayref of the current args
+An arrayref of the current args
 
 =head2 @args
 
@@ -263,6 +271,8 @@ An array of the current args.  Only makes sense if this is the last specified
 argument.
 
 =head2 $arg0 .. $argN
+
+=head2 arg0 ... argN
 
 One of the indexed args, where $args0 => $args[0];
 
