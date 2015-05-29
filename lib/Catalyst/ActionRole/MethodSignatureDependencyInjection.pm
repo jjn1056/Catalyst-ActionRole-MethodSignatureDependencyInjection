@@ -1,6 +1,7 @@
 package Catalyst::ActionRole::MethodSignatureDependencyInjection;
 
 use Moose::Role;
+use Carp;
 
 our $VERSION = '0.008';
 
@@ -96,14 +97,14 @@ sub _parse_dependencies {
 
     if($what =~/^\$?Arg\s.*/) {
       # count arg
-      die "You can't mix numbered args and unnumbered args in the same signature" unless defined $arg_count;
+      confess "You can't mix numbered args and unnumbered args in the same signature" unless defined $arg_count;
       push @dependencies, $ctx->req->args->[$arg_count];
       $arg_count++;
     }
 
     if($what =~/^\$?Capture\s.*/) {
       # count arg
-      die "You can't mix numbered captures and unnumbered captures in the same signature" unless defined $arg_count;
+      confess "You can't mix numbered captures and unnumbered captures in the same signature" unless defined $arg_count;
       push @dependencies, $args[$capture_count];
       $capture_count++;
     }

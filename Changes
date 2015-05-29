@@ -4,6 +4,7 @@
   - Added support for chained actions
   - Ability to infer Args and CaptureArgs from declared method
     signature (when using Catalyst::ActionSignature).
+  - Declare type constraints on args and captureargs.
   - Lots of small documentation inprovements.
 
 0.007 - 2015-05-28

@@ -65,7 +65,7 @@ use Test::Most;
     $res->body(join ',', @ids);
   }
 
-  sub chain(Model::A $a, Capture $id, $res) :Chained(/) {
+  sub chain(Model::A $a, Capture $id isa '"Int"', $res) :Chained(/) {
     Test::Most::is $id, 100;
     Test::Most::ok $res->isa('Catalyst::Response');
   }
@@ -76,6 +76,14 @@ use Test::Most;
  
     sub endchain2($res, Arg $first, Arg $last) :Chained(chain) PathPart(endchain)  {
       $res->body("$first $last");
+    }
+
+    sub typed0($res, Arg $id) :Chained(chain) PathPart(typed) {
+      $res->body('any');
+    }
+
+    sub typed1($res, Arg $pid isa '"Int"') :Chained(chain) PathPart(typed) {
+      $res->body('int');
     }
 
   package MyApp;
@@ -130,5 +138,16 @@ use Catalyst::Test 'MyApp';
   ok my $res = request('/example/argsargs/11/22/33');
   is $res->content, '11,22,33';
 }
+
+{
+  ok my $res = request('/chain/100/typed/string');
+  is $res->content, 'any';
+}
+
+{
+  ok my $res = request('/chain/100/typed/200');
+  is $res->content, 'int';
+}
+
 
 done_testing;

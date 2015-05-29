@@ -2,12 +2,13 @@ package Catalyst::ActionSignatures;
 
 use Moose;
 use B::Hooks::Parser;
+use Carp;
 extends 'signatures';
 
 around 'callback', sub {
   my ($orig, $self, $offset, $inject) = @_;
 
-  my @parts = map { $_=~s/^.*([\$\%\@])/$1/; $_ } split ',', $inject;
+  my @parts = map { $_=~s/^.*([\$\%\@]\w+).*$/$1/; $_ } split ',', $inject;
   my $signature = join(',', ('$self', @parts));
 
   $self->$orig($offset, $signature);
@@ -27,12 +28,32 @@ around 'callback', sub {
     # How many numbered or unnumberd args?
     my $count_args = scalar(my @countargs = $inject=~m/(Arg)[\d+\s]/ig);
     if($count_args and $attribute_area!~m/Args\(.+?\)/i) {
-      $linestr =~s/\{/ :Args($count_args) \{/;
+      
+      my @constraints = ($inject=~m/Arg[\d+\s+][\$\%\@]\w+\s+isa\s+([\w"']+)/gi);
+      if(@constraints) {
+        if(scalar(@constraints) != $count_args) {
+          confess "If you use constraints in a method signature, all args must have constraints";
+        }
+        my $constraint = join ',',@constraints;
+        $linestr =~s/\{/ :Args($constraint) \{/;
+      } else {
+        $linestr =~s/\{/ :Args($count_args) \{/;
+      }
     }
 
     my $count_capture = scalar(my @countcaps = $inject=~m/(capture)[\d+\s]/ig);
     if($count_capture and $attribute_area!~m/CaptureArgs\(.+?\)/i) {
-      $linestr =~s/\{/ :CaptureArgs($count_capture) \{/;
+
+      my @constraints = ($inject=~m/Capture[\d+\s+][\$\%\@]\w+\s+isa\s+([\w"']+)/gi);
+      if(@constraints) {
+        if(scalar(@constraints) != $count_capture) {
+          confess "If you use constraints in a method signature, all args must have constraints";
+        }
+        my $constraint = join ',',@constraints;
+        $linestr =~s/\{/ :CaptureArgs($constraint) \{/;
+      } else {
+        $linestr =~s/\{/ :CaptureArgs($count_capture) \{/;
+      }
     }
 
     # Check for Args
@@ -124,6 +145,29 @@ You can do:
       sub endchain2($res, Arg $first, Arg $last) :Chained(chain) PathPart(endchain)  {
         $res->body("$first $last");
       }
+
+=head1 Type Constraints
+
+If you are using a newer L<Catalyst> (greater that 5.90090) you may declare your
+Args and CaptureArgs typeconstraints via the method signature.
+
+    use Types::Standard qw/Int Str/;
+
+    sub chain(Model::A $a, Capture $id isa Int, $res) :Chained(/) {
+      Test::Most::is $id, 100;
+      Test::Most::ok $res->isa('Catalyst::Response');
+    }
+
+      sub typed0($res, Arg $id) :Chained(chain) PathPart(typed) {
+        $res->body('any');
+      }
+
+      sub typed1($res, Arg $pid isa Int) :Chained(chain) PathPart(typed) {
+        $res->body('int');
+      }
+
+B<NOTE> If you declare any type constraints on args or captures, all declared
+args or captures must have them.
 
 =head1 SEE ALSO
 
