@@ -2,6 +2,9 @@
 
 0.008 - 2015-05-29
   - Added support for chained actions
+  - Ability to infer Args and CaptureArgs from declared method
+    signature (when using Catalyst::ActionSignature).
+  - Lots of small documentation inprovements.
 
 0.007 - 2015-05-28
   - New support for signatures via Catalyst::ActionSignatures.

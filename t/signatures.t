@@ -61,6 +61,10 @@ use Test::Most;
     return 1;
   }
 
+  sub argsargs($res, Args @ids) :Local {
+    $res->body(join ',', @ids);
+  }
+
   sub chain(Model::A $a, Capture $id, $res) :Chained(/) {
     Test::Most::is $id, 100;
     Test::Most::ok $res->isa('Catalyst::Response');
@@ -110,6 +114,21 @@ use Catalyst::Test 'MyApp';
 {
   ok my $res = request('/chain/100/endchain/john/nap');
   is $res->content, 'john nap';
+}
+
+{
+  ok my $res = request('/example/argsargs/');
+  is $res->content, '';
+}
+
+{
+  ok my $res = request('/example/argsargs/11');
+  is $res->content, '11';
+}
+
+{
+  ok my $res = request('/example/argsargs/11/22/33');
+  is $res->content, '11,22,33';
 }
 
 done_testing;

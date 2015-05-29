@@ -2,7 +2,7 @@ package Catalyst::ActionRole::MethodSignatureDependencyInjection;
 
 use Moose::Role;
 
-our $VERSION = '0.007';
+our $VERSION = '0.008';
 
 has use_prototype => (
   is=>'ro',
@@ -88,6 +88,10 @@ sub _parse_dependencies {
     if(defined(my $arg_index = ($what =~/^\$?Arg(\d+).*$/i)[0])) {
       push @dependencies, $ctx->req->args->[$arg_index];
       $arg_count = undef;
+    }
+
+    if($what=~/^\$?Args\s/) {
+      push @dependencies, @{$ctx->req->args}; # need to die if this is not the last..
     }
 
     if($what =~/^\$?Arg\s.*/) {
@@ -285,6 +289,7 @@ The current L<Catalyst::Response>
 
 An arrayref of the current args
 
+=head2 args
 =head2 @args
 
 An array of the current args.  Only makes sense if this is the last specified
@@ -305,6 +310,19 @@ of such 'un-numbered' args in your signature.  For example:
 
 Would match two arguments $arg->[0] and $args->[1].  You cannot use both numbered
 and un-numbered args in the same signature.
+
+B<NOTE>This also works with the 'Args' special 'zero or more' match.  So for
+example:
+
+    sub argsargs($res, Args @ids) :Local {
+      $res->body(join ',', @ids);
+    }
+
+Is the same as:
+
+    sub argsargs($res, Args @ids) :Local Args {
+      $res->body(join ',', @ids);
+    }
 
 =head2 $captures
 

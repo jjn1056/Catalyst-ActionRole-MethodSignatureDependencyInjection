@@ -7,7 +7,7 @@ extends 'signatures';
 around 'callback', sub {
   my ($orig, $self, $offset, $inject) = @_;
 
-  my @parts = map { $_=~s/^.*([\$\%])/$1/; $_ } split ',', $inject;
+  my @parts = map { $_=~s/^.*([\$\%\@])/$1/; $_ } split ',', $inject;
   my $signature = join(',', ('$self', @parts));
 
   $self->$orig($offset, $signature);
@@ -35,9 +35,14 @@ around 'callback', sub {
       $linestr =~s/\{/ :CaptureArgs($count_capture) \{/;
     }
 
+    # Check for Args
+    if(($inject=~m/Args/i) and ($attribute_area!~m/Args\s/)) {
+      $linestr =~s/\{/ :Args \{/;
+    }
+
     B::Hooks::Parser::set_linestr($linestr);
 
-    #warn $linestr;
+    #warn "\n $linestr \n";
 
   } 
 };
