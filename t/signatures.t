@@ -86,6 +86,10 @@ use Test::Most;
       $res->body('int');
     }
 
+  sub another_chain($res) :Chained(/) { }
+
+    sub another_end($res) :Chained(another_chain) Args(0) { $res->body('another_end') }
+
   package MyApp;
   use Catalyst;
   
@@ -149,5 +153,9 @@ use Catalyst::Test 'MyApp';
   is $res->content, 'int';
 }
 
+{
+  ok my $res = request('/another_chain/another_end');
+  is $res->content, 'another_end';
+}
 
 done_testing;

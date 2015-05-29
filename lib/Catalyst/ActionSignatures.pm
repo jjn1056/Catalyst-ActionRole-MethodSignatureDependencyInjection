@@ -61,6 +61,19 @@ around 'callback', sub {
       $linestr =~s/\{/ :Args \{/;
     }
 
+    # If this is chained but no Args, Args($n) or Captures($n), then add 
+    # a CaptureArgs(0).  Gotta rebuild the attribute area since we might
+    # have modified it above.
+    ($attribute_area) = ($linestr =~m/\)(.*){/);
+
+    if(
+      $attribute_area =~m/Chained/i && 
+        $attribute_area!~m/[\s\:]Args/i &&
+          $attribute_area!~m/CaptureArgs/i
+    ) {
+      $linestr =~s/\{/ :CaptureArgs(0) \{/;
+    }
+
     B::Hooks::Parser::set_linestr($linestr);
 
     #warn "\n $linestr \n";
