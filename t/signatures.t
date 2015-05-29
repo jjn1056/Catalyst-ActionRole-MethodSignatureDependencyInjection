@@ -86,9 +86,9 @@ use Test::Most;
       $res->body('int');
     }
 
-  sub another_chain($res) :Chained(/) { }
+  sub another_chain() :Chained(/) { }
 
-    sub another_end($res) :Chained(another_chain) Args(0) { $res->body('another_end') }
+    sub another_end($res) :Chained(another_chain/)  { $res->body('another_end') }
 
   package MyApp;
   use Catalyst;

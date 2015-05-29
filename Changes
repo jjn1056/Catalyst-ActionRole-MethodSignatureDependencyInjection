@@ -5,6 +5,8 @@
   - Ability to infer Args and CaptureArgs from declared method
     signature (when using Catalyst::ActionSignature).
   - Declare type constraints on args and captureargs.
+  - Implicitly use CaptureArgs(0) in chained actions when no
+    Args or Captures is declared.
   - Lots of small documentation inprovements.
 
 0.007 - 2015-05-28

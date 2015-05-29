@@ -61,6 +61,19 @@ around 'callback', sub {
       $linestr =~s/\{/ :Args \{/;
     }
 
+    # If there's Chained($target/) thats the convention for last
+    # action in chain with Args(0).  So if we detect that and there
+    # is no Args present, add Args(0).
+    ($attribute_area) = ($linestr =~m/\)(.*){/);
+    
+    if(
+        $attribute_area =~m/Chained\(.+?\/\)/ 
+        && $attribute_area!~m/[\s\:]Args/i
+    ) {
+      $linestr =~s/Chained\((.+?)\/\)/Chained\($1\)/;
+      $linestr =~s/\{/ :Args(0) \{/;
+    }
+
     # If this is chained but no Args, Args($n) or Captures($n), then add 
     # a CaptureArgs(0).  Gotta rebuild the attribute area since we might
     # have modified it above.
@@ -77,7 +90,6 @@ around 'callback', sub {
     B::Hooks::Parser::set_linestr($linestr);
 
     #warn "\n $linestr \n";
-
   } 
 };
 
@@ -181,6 +193,22 @@ Args and CaptureArgs typeconstraints via the method signature.
 
 B<NOTE> If you declare any type constraints on args or captures, all declared
 args or captures must have them.
+
+=head1 Implicit 'CaptureArgs(0)' and 'Args(0) in chained actions
+
+If you fail to use an Args or CaptureArgs attributes and you do not declare
+any captures or args in your chained action method signatures, we automatically
+add a CaptureArgs(0) attribute.  However, since we cannot properly detect the
+end of a chain, you must still use Args(0) to terminate chains when the
+last action has no arguments.  You may instead use "Chained(link/)" and
+note the terminal '/' in the chained attribute value to declare a terminal
+Chain with an implicit Args(0).
+
+    sub another_chain() :Chained(/) { }
+
+      sub another_end($res) :Chained(another_chain/) {
+        $res->body('another_end');
+      }
 
 =head1 SEE ALSO
 
