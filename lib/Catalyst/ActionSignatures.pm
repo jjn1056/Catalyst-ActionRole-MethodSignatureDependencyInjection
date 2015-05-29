@@ -23,8 +23,23 @@ around 'callback', sub {
 
   if($attribute_area =~m/\S/) {
     $linestr =~s/\{/:Does(MethodSignatureDependencyInjection) :ExecuteArgsTemplate($inject) \{/;
+
+    # How many numbered or unnumberd args?
+    my $count_args = scalar(my @countargs = $inject=~m/(Arg)[\d+\s]/ig);
+    if($count_args and $attribute_area!~m/Args\(.+?\)/i) {
+      $linestr =~s/\{/ :Args($count_args) \{/;
+    }
+
+    my $count_capture = scalar(my @countcaps = $inject=~m/(capture)[\d+\s]/ig);
+    if($count_capture and $attribute_area!~m/CaptureArgs\(.+?\)/i) {
+      $linestr =~s/\{/ :CaptureArgs($count_capture) \{/;
+    }
+
     B::Hooks::Parser::set_linestr($linestr);
-  }
+
+    #warn $linestr;
+
+  } 
 };
 
 1;
@@ -67,6 +82,43 @@ For actions and regular controller methods, "$self" is implicitly injected,
 but '$c' is not.  You should add that to the method signature if you need it
 although you are encouraged to name your dependencies rather than hang it all
 after $c.
+
+You should review L<Catalyst::ActionRole::MethodSignatureDependencyInjection>
+for more on how to construct signatures.
+
+=head1 Args and Captures
+
+If you specify args and captures in your method signature, you can leave off the
+associated method attributes (Args($n) and CaptureArgs($n)) IF the method 
+signature is the full specification.  In other works instead of:
+
+    sub chain(Model::A $a, Capture $id, $res) :Chained(/) CaptureArgs(1) {
+      Test::Most::is $id, 100;
+      Test::Most::ok $res->isa('Catalyst::Response');
+    }
+
+      sub endchain($res, Arg0 $name) :Chained(chain) Args(1) {
+        $res->body($name);
+      }
+   
+      sub endchain2($res, Arg $first, Arg $last) :Chained(chain) PathPart(endchain) Args(2) {
+        $res->body("$first $last");
+      }
+
+You can do:
+
+    sub chain(Model::A $a, Capture $id, $res) :Chained(/) {
+      Test::Most::is $id, 100;
+      Test::Most::ok $res->isa('Catalyst::Response');
+    }
+
+      sub endchain($res, Arg0 $name) :Chained(chain)  {
+        $res->body($name);
+      }
+   
+      sub endchain2($res, Arg $first, Arg $last) :Chained(chain) PathPart(endchain)  {
+        $res->body("$first $last");
+      }
 
 =head1 SEE ALSO
 

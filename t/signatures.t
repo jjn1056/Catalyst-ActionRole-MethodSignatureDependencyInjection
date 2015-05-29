@@ -61,20 +61,25 @@ use Test::Most;
     return 1;
   }
 
-  sub chain(Model::A $a, Capture0 $id, $res) :Chained(/) CaptureArgs(1) {
+  sub chain(Model::A $a, Capture $id, $res) :Chained(/) {
     Test::Most::is $id, 100;
+    Test::Most::ok $res->isa('Catalyst::Response');
   }
 
-    sub endchain($res, Arg0 $name) :Chained(chain) Args(1) {
+    sub endchain($res, Arg0 $name) :Chained(chain)  {
       $res->body($name);
     }
-  
+ 
+    sub endchain2($res, Arg $first, Arg $last) :Chained(chain) PathPart(endchain)  {
+      $res->body("$first $last");
+    }
+
   package MyApp;
   use Catalyst;
   
   MyApp->config(
-    'Model::A' => {aaa=>100},
-    'Model::Z' => {zzz=>200},  
+    'Model::A' => { aaa => 100 },
+    'Model::Z' => { zzz => 200 },
   );
   MyApp->setup;
 }
@@ -89,8 +94,7 @@ use Catalyst::Test 'MyApp';
   is $c->model('A')->aaa, 100;
   is $c->model('Z')->bar, 'bar';
   is $c->model('Z')->zzz, 200;
-
-  warn $res->content;
+  is $res->content, '100 200';
 }
 
 {
@@ -101,6 +105,11 @@ use Catalyst::Test 'MyApp';
 {
   ok my $res = request('/chain/100/endchain/john');
   is $res->content, 'john';
+}
+
+{
+  ok my $res = request('/chain/100/endchain/john/nap');
+  is $res->content, 'john nap';
 }
 
 done_testing;

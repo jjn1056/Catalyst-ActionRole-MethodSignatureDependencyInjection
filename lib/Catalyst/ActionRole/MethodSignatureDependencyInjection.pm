@@ -67,6 +67,8 @@ sub _parse_dependencies {
   my @dependencies = ();
   my $template = $self->template;
 
+  my $arg_count = 0;
+  my $capture_count = 0;
   my @what = map { $_ =~ s/^\s+|\s+$//g; $_ } ($template=~/($p2|$p)/gx);
   while(my $what = shift @what) {
 
@@ -85,6 +87,21 @@ sub _parse_dependencies {
 
     if(defined(my $arg_index = ($what =~/^\$?Arg(\d+).*$/i)[0])) {
       push @dependencies, $ctx->req->args->[$arg_index];
+      $arg_count = undef;
+    }
+
+    if($what =~/^\$?Arg\s.*/) {
+      # count arg
+      die "You can't mix numbered args and unnumbered args in the same signature" unless defined $arg_count;
+      push @dependencies, $ctx->req->args->[$arg_count];
+      $arg_count++;
+    }
+
+    if($what =~/^\$?Capture\s.*/) {
+      # count arg
+      die "You can't mix numbered captures and unnumbered captures in the same signature" unless defined $arg_count;
+      push @dependencies, $args[$capture_count];
+      $capture_count++;
     }
 
     if(defined(my $capture_index = ($what =~/^\$?Capture(\d+).*$/i)[0])) {
@@ -246,6 +263,9 @@ for a system that bundles this all up more neatly.
 You define your execute arguments as a positioned list (for now).  The system
 recognizes the following 'built ins' (you always get $self automatically).
 
+B<NOTE> These arguments are matched using a case insensitive regular expression
+so generally whereever you see $arg you can also use $Arg or $ARG.
+
 =head2 $c
 
 =head2 $ctx
@@ -275,6 +295,41 @@ argument.
 =head2 arg0 ... argN
 
 One of the indexed args, where $args0 => $args[0];
+
+=head2 arg
+
+If you use 'arg' without a numbered index, we assume an index based on the number
+of such 'un-numbered' args in your signature.  For example:
+
+    ExecuteArgsTemplate(Arg, Arg)
+
+Would match two arguments $arg->[0] and $args->[1].  You cannot use both numbered
+and un-numbered args in the same signature.
+
+=head2 $captures
+
+An arrayref of the current CaptureArgs (used in Chained actions).
+
+=head2 @captures
+
+An array of the current CaptureArgs.  Only makes sense if this is the last specified
+argument.
+
+=head2 $capture0 .. $captureN
+
+=head2 capture0 ... captureN
+
+One of the indexed Capture Args, where $capture0 => $capture0[0];
+
+=head2 capture
+
+If you use 'capture' without a numbered index, we assume an index based on the number
+of such 'un-numbered' args in your signature.  For example:
+
+    ExecuteArgsTemplate(Capture, Capture)
+
+Would match two arguments $capture->[0] and $capture->[1].  You cannot use both numbered
+and un-numbered capture args in the same signature.
 
 =head2 $bodyData
 

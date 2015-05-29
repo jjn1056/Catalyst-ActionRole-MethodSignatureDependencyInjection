@@ -83,6 +83,9 @@ for a system that bundles this all up more neatly.
 You define your execute arguments as a positioned list (for now).  The system
 recognizes the following 'built ins' (you always get $self automatically).
 
+**NOTE** These arguments are matched using a case insensitive regular expression
+so generally whereever you see $arg you can also use $Arg or $ARG.
+
 ## $c
 
 ## $ctx
@@ -100,7 +103,7 @@ The current [Catalyst::Response](https://metacpan.org/pod/Catalyst::Response)
 
 ## $args
 
-The current an arrayref of the current args
+An arrayref of the current args
 
 ## @args
 
@@ -109,7 +112,44 @@ argument.
 
 ## $arg0 .. $argN
 
+## arg0 ... argN
+
 One of the indexed args, where $args0 => $args\[0\];
+
+## arg
+
+If you use 'arg' without a numbered index, we assume an index based on the number
+of such 'un-numbered' args in your signature.  For example:
+
+    ExecuteArgsTemplate(Arg, Arg)
+
+Would match two arguments $arg->\[0\] and $args->\[1\].  You cannot use both numbered
+and un-numbered args in the same signature.
+
+## $captures
+
+An arrayref of the current CaptureArgs (used in Chained actions).
+
+## @captures
+
+An array of the current CaptureArgs.  Only makes sense if this is the last specified
+argument.
+
+## $capture0 .. $captureN
+
+## capture0 ... captureN
+
+One of the indexed Capture Args, where $capture0 => $capture0\[0\];
+
+## capture
+
+If you use 'capture' without a numbered index, we assume an index based on the number
+of such 'un-numbered' args in your signature.  For example:
+
+    ExecuteArgsTemplate(Capture, Capture)
+
+Would match two arguments $capture->\[0\] and $capture->\[1\].  You cannot use both numbered
+and un-numbered capture args in the same signature.
 
 ## $bodyData
 
@@ -199,6 +239,6 @@ the same terms as Perl itself.
 
 Hey! **The above document had some coding errors, which are explained below:**
 
-- Around line 334:
+- Around line 399:
 
     Deleting unknown formatting code A<>
