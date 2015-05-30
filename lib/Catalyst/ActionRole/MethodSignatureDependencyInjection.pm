@@ -70,7 +70,6 @@ sub parse_injection_spec_section {
   return $1;
 }
 
-
 has dependency_builder => (
   is=>'ro',
   required=>1,
@@ -81,9 +80,7 @@ has dependency_builder => (
   sub _dependency_builder {
     my $self = shift;
     my $template = $self->template;
-   
     my @what = ();
-
     for($template) {
       PARSE: {
         last PARSE unless length;
