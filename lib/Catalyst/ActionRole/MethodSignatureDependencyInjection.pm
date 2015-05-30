@@ -80,29 +80,30 @@ has dependency_builder => (
 
   sub _dependency_builder {
     my $self = shift;
-    return [];
+    my $template = $self->template;
+   
+    my @what = ();
+
+    for($template) {
+      PARSE: {
+        last PARSE unless length;
+        do {  
+          push @what, $self->parse_injection_spec_section($_) 
+            || die "trouble parsing action $self template '$template'";
+          last PARSE if (pos == length);
+        } until (pos == length);
+      }
+    }
+
+    return \@what;
   }
 
 sub _parse_dependencies {
   my ($self, $ctx, @args) = @_;
-  my $template = $self->template;
- 
-  my @dependencies = ();
-  my @what = ();
+  my @what = @{$self->dependency_builder};
   my $arg_count = 0;
   my $capture_count = 0;
-
-  for($template) {
-    PARSE: {
-      last PARSE unless length;
-      do {  
-        push @what, $self->parse_injection_spec_section($_) 
-          || die "trouble parsing action $self template '$template'";
-        last PARSE if (pos == length);
-      } until (pos == length);
-    }
-  }
-
+  my @dependencies = ();
   while(my $what = shift @what) {
 
     do { push @dependencies, $ctx; next } if lc($what) eq '$ctx';
@@ -187,7 +188,7 @@ sub _parse_dependencies {
       next;
     }
 
-    die "Found undefined Token in action $self signature '$template' => '$what'";
+    die "Found undefined Token in action $self signature '${\$self->template}' => '$what'";
   }
 
   unless(scalar @dependencies) {
