@@ -194,7 +194,7 @@ Args and CaptureArgs typeconstraints via the method signature.
 B<NOTE> If you declare any type constraints on args or captures, all declared
 args or captures must have them.
 
-=head1 Implicit 'CaptureArgs(0)' and 'Args(0) in chained actions
+=head1 Implicit 'CaptureArgs(0)' and 'Args(0)' in chained actions
 
 If you fail to use an Args or CaptureArgs attributes and you do not declare
 any captures or args in your chained action method signatures, we automatically
