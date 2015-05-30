@@ -3,7 +3,7 @@ package Catalyst::ActionRole::MethodSignatureDependencyInjection;
 use Moose::Role;
 use Carp;
 
-our $VERSION = '0.009';
+our $VERSION = '0.010';
 
 has use_prototype => (
   is=>'ro',
@@ -58,41 +58,75 @@ has template => (
       $self->prototype : $self->execute_args_template;
   }
 
-sub _parse_dependencies {
-  my ($self, $ctx, @args) = @_;
+sub parse_injection_spec_section {
+  my ($self) = @_;
 
   # These Regexps could be better to allow more whitespace.
   my $p = qr/[^,]+/;
   my $p2 = qr/$p<.+?>/x;
-  
-  my @dependencies = ();
-  my $template = $self->template;
 
+  $_[1]=~/\s*($p2|$p)\s*/gxc;
+
+  return $1;
+}
+
+
+has dependency_builder => (
+  is=>'ro',
+  required=>1,
+  isa=>'ArrayRef',
+  lazy=>1,
+  builder=>'_dependency_builder');
+
+  sub _dependency_builder {
+    my $self = shift;
+    return [];
+  }
+
+sub _parse_dependencies {
+  my ($self, $ctx, @args) = @_;
+  my $template = $self->template;
+ 
+  my @dependencies = ();
+  my @what = ();
   my $arg_count = 0;
   my $capture_count = 0;
-  my @what = map { $_ =~ s/^\s+|\s+$//g; $_ } ($template=~/($p2|$p)/gx);
+
+  for($template) {
+    PARSE: {
+      last PARSE unless length;
+      do {  
+        push @what, $self->parse_injection_spec_section($_) 
+          || die "trouble parsing action $self template '$template'";
+        last PARSE if (pos == length);
+      } until (pos == length);
+    }
+  }
+
   while(my $what = shift @what) {
 
-    push @dependencies, $ctx if lc($what) eq '$ctx';
-    push @dependencies, $ctx if lc($what) eq '$c';
-    push @dependencies, $ctx->req if lc($what) eq '$req';
-    push @dependencies, $ctx->res if lc($what) eq '$res';
-    push @dependencies, $ctx->req->args if lc($what) eq '$args';
-    push @dependencies, $ctx->req->body_data||+{}  if lc($what) eq '$bodydata';
-    push @dependencies, $ctx->req->body_parameters if lc($what) eq '$bodyparams';
-    push @dependencies, $ctx->req->query_parameters if lc($what) eq '$queryparams';
+    do { push @dependencies, $ctx; next } if lc($what) eq '$ctx';
+    do { push @dependencies, $ctx; next }  if lc($what) eq '$c';
+    do { push @dependencies, $ctx->req; next }  if lc($what) eq '$req';
+    do { push @dependencies, $ctx->res; next }  if lc($what) eq '$res';
+    do { push @dependencies, $ctx->req->args; next }  if lc($what) eq '$args';
+    do { push @dependencies, $ctx->req->body_data||+{}; next }   if lc($what) eq '$bodydata';
+    do { push @dependencies, $ctx->req->body_parameters; next }  if lc($what) eq '$bodyparams';
+    do { push @dependencies, $ctx->req->query_parameters; next }  if lc($what) eq '$queryparams';
 
     #This will blow stuff up unless its the last...
-    push @dependencies, @{$ctx->req->args} if lc($what) eq '@args';
-    push @dependencies, @{$ctx->req->body_parameters} if lc($what) eq '%bodyparams';
+    do { push @dependencies, @{$ctx->req->args}; next }  if lc($what) eq '@args';
+    do { push @dependencies, @{$ctx->req->body_parameters}; next }  if lc($what) eq '%bodyparams';
 
     if(defined(my $arg_index = ($what =~/^\$?Arg(\d+).*$/i)[0])) {
       push @dependencies, $ctx->req->args->[$arg_index];
       $arg_count = undef;
+      next;
     }
 
     if($what=~/^\$?Args\s/) {
       push @dependencies, @{$ctx->req->args}; # need to die if this is not the last..
+      next;
     }
 
     if($what =~/^\$?Arg\s.*/) {
@@ -100,6 +134,7 @@ sub _parse_dependencies {
       confess "You can't mix numbered args and unnumbered args in the same signature" unless defined $arg_count;
       push @dependencies, $ctx->req->args->[$arg_count];
       $arg_count++;
+      next;
     }
 
     if($what =~/^\$?Capture\s.*/) {
@@ -107,11 +142,13 @@ sub _parse_dependencies {
       confess "You can't mix numbered captures and unnumbered captures in the same signature" unless defined $arg_count;
       push @dependencies, $args[$capture_count];
       $capture_count++;
+      next
     }
 
     if(defined(my $capture_index = ($what =~/^\$?Capture(\d+).*$/i)[0])) {
       # If they are asking for captures, we look at @args.. sorry
       push @dependencies, $args[$capture_index];
+      next;
     }
 
     if(my $model = ($what =~/^Model\:\:(.+)\s+.+$/)[0] || ($what =~/^Model\:\:(.+)/)[0]) {
@@ -125,6 +162,7 @@ sub _parse_dependencies {
       warn "$model returns more than one arg" if @rest;
       warn "$model is not defined, action will not match" unless defined $ret;
       push @dependencies, $ret;
+      next;
     }
 
     if(my $view = ($what =~/^View\\:\:(.+)\s+.+$/)[0] || ($what =~/^View\:\:(.+)\s+.+$/)[0]) {
@@ -138,6 +176,7 @@ sub _parse_dependencies {
       warn "$view returns more than one arg" if @rest;
       warn "$view is not defined, action will not match" unless defined $ret;
       push @dependencies, $ret;
+      next;
     }
 
     if(my $controller = ($what =~/^Controller\:\:(.+)\s+.+$/)[0] || ($what =~/^Controller\:\:(.+)\s+.+$/)[0]) {
@@ -145,7 +184,10 @@ sub _parse_dependencies {
       warn "$controller returns more than one arg" if @rest;
       warn "$controller is not defined, action will not match" unless defined $ret;
       push @dependencies, $ret;
+      next;
     }
+
+    die "Found undefined Token in action $self signature '$template' => '$what'";
   }
 
   unless(scalar @dependencies) {
