@@ -1,5 +1,9 @@
 # This file documents the revision history for Perl extension Catalyst::ActionRole::MethodSignatureDependencyInjection.
 
+0.009 - 2015-05-xx
+  - Support for quoted attributes (Chained('ddd')).
+  - $ENV{CATALYST_METHODSIGNATURES_DEBUG} added.
+
 0.008 - 2015-05-29
   - Added support for chained actions
   - Ability to infer Args and CaptureArgs from declared method

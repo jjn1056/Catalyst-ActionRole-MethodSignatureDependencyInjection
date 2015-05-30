@@ -89,7 +89,7 @@ around 'callback', sub {
 
     B::Hooks::Parser::set_linestr($linestr);
 
-    #warn "\n $linestr \n";
+    print "\n $linestr \n" if $ENV{CATALYST_METHODSIGNATURES_DEBUG};
   } 
 };
 
@@ -209,6 +209,12 @@ Chain with an implicit Args(0).
       sub another_end($res) :Chained(another_chain/) {
         $res->body('another_end');
       }
+
+=head1 ENVIROMENT VARIABLES.
+
+Set C<CATALYST_METHODSIGNATURES_DEBUG> to true to get initial debugging output
+of the generated method signatures and attribute changes. Useful if you are
+having trouble and want some help to offer a patch!
 
 =head1 SEE ALSO
 
