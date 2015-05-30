@@ -2,6 +2,7 @@
 
 0.010 - 2015-05-30
   - Better errors when you make a bad signature.
+  - moved Catalyst::ActionSignatures out to its own distribution
 
 0.009 - 2015-05-29
   - Support for quoted attributes (Chained('ddd')).
