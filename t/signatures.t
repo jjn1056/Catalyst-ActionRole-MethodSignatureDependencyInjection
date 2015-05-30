@@ -111,7 +111,7 @@ use Test::Most;
     $c->res->body($self->regular(200));
   }
 
-  sub test_arg($res, Arg0 $id, Arg1 $pid, Model::A $a) :Local Args(2) {
+  sub test_arg($res, Arg0 $id, Arg1 $pid, Model::A $a) :Local Args('2') {
     $res->body("$id+$pid");
   }
 
@@ -127,30 +127,30 @@ use Test::Most;
     $res->body(join ',', @ids);
   }
 
-  sub chain(Model::A $a, Capture $id isa '"Int"', $res) :Chained(/) PathPrefix {
+  sub chain(Model::A $a, Capture $id isa '"Int"', $res) :Chained('/') PathPrefix {
     Test::Most::is $id, 100;
     Test::Most::ok $res->isa('Catalyst::Response');
   }
 
-    sub endchain($res, Arg0 $name) :Chained(chain)  {
+    sub endchain($res, Arg0 $name) :Chained('chain')  {
       $res->body($name);
     }
  
-    sub endchain2($res, Arg $first, Arg $last) :Chained(chain) PathPart(endchain)  {
+    sub endchain2($res, Arg $first, Arg $last) :Chained('chain') PathPart('endchain')  {
       $res->body("$first $last");
     }
 
-    sub typed0($res, Arg $id) :Chained(chain) PathPart(typed) {
+    sub typed0($res, Arg $id) :Chained('chain') PathPart('typed') {
       $res->body('any');
     }
 
-    sub typed1($res, Arg $pid isa '"Int"') :Chained(chain) PathPart(typed) {
+    sub typed1($res, Arg $pid isa '"Int"') :Chained('chain') PathPart('typed') {
       $res->body('int');
     }
 
-  sub another_chain() :Chained(/) PathPrefix { }
+  sub another_chain() :Chained('/') PathPrefix { }
 
-    sub another_end($res) :Chained(another_chain/)  { $res->body('another_end') }
+    sub another_end($res) :Chained('another_chain/')  { $res->body('another_end') }
 
   package MyApp;
   use Catalyst;

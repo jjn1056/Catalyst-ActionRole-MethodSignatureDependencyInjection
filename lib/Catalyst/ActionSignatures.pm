@@ -67,10 +67,10 @@ around 'callback', sub {
     ($attribute_area) = ($linestr =~m/\)(.*){/);
     
     if(
-        $attribute_area =~m/Chained\(.+?\/\)/ 
+        $attribute_area =~m/Chained\(['"]?\w+?\/['"]?\)/ 
         && $attribute_area!~m/[\s\:]Args/i
     ) {
-      $linestr =~s/Chained\((.+?)\/\)/Chained\($1\)/;
+      $linestr =~s/Chained\(["']?(\w+?)\/["']?\)/Chained\($1\)/;
       $linestr =~s/\{/ :Args(0) \{/;
     }
 
