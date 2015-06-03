@@ -95,114 +95,121 @@ has dependency_builder => (
     return \@what;
   }
 
-sub _parse_dependencies {
-  my ($self, $ctx, @args) = @_;
-  my @what = @{$self->dependency_builder};
-  my $arg_count = 0;
-  my $capture_count = 0;
-  my @dependencies = ();
-  while(my $what = shift @what) {
+has prepared_dependencies => (
+  is=>'ro',
+  required=>1,
+  isa=>'ArrayRef',
+  lazy=>1,
+  builder=>'_build_prepared_dependencies');
 
-    do { push @dependencies, sub { shift }; next } if lc($what) eq '$ctx';
-    do { push @dependencies, sub { shift }; next }  if lc($what) eq '$c';
-    do { push @dependencies, sub { shift->req }; next }  if lc($what) eq '$req';
-    do { push @dependencies, sub { shift->res }; next }  if lc($what) eq '$res';
-    do { push @dependencies, sub { shift->req->args}; next }  if lc($what) eq '$args';
-    do { push @dependencies, sub { shift->req->body_data||+{} }; next }   if lc($what) eq '$bodydata';
-    do { push @dependencies, sub { shift->req->body_parameters}; next }  if lc($what) eq '$bodyparams';
-    do { push @dependencies, sub { shift->req->query_parameters}; next }  if lc($what) eq '$queryparams';
+  sub _build_prepared_dependencies {
+    my ($self) = @_;
+    my @what = @{$self->dependency_builder};
+    my $arg_count = 0;
+    my $capture_count = 0;
+    my @dependencies = ();
+    while(my $what = shift @what) {
 
-    #This will blow stuff up unless its the last...
-    do { push @dependencies, sub { @{shift->req->args}} ; next }  if lc($what) eq '@args';
-    do { push @dependencies, sub { @{shift->req->body_parameters}}; next }  if lc($what) eq '%bodyparams';
+      do { push @dependencies, sub { shift }; next } if lc($what) eq '$ctx';
+      do { push @dependencies, sub { shift }; next }  if lc($what) eq '$c';
+      do { push @dependencies, sub { shift->req }; next }  if lc($what) eq '$req';
+      do { push @dependencies, sub { shift->res }; next }  if lc($what) eq '$res';
+      do { push @dependencies, sub { shift->req->args}; next }  if lc($what) eq '$args';
+      do { push @dependencies, sub { shift->req->body_data||+{} }; next }   if lc($what) eq '$bodydata';
+      do { push @dependencies, sub { shift->req->body_parameters}; next }  if lc($what) eq '$bodyparams';
+      do { push @dependencies, sub { shift->req->query_parameters}; next }  if lc($what) eq '$queryparams';
 
-    if(defined(my $arg_index = ($what =~/^\$?Arg(\d+).*$/i)[0])) {
-      push @dependencies, sub { shift->req->args->[$arg_index] };
-      $arg_count = undef;
-      next;
-    }
+      #This will blow stuff up unless its the last...
+      do { push @dependencies, sub { @{shift->req->args}} ; next }  if lc($what) eq '@args';
+      do { push @dependencies, sub { @{shift->req->body_parameters}}; next }  if lc($what) eq '%bodyparams';
 
-    if($what=~/^\$?Args\s/) {
-      push @dependencies, sub { @{shift->req->args}}; # need to die if this is not the last..
-      next;
-    }
-
-    if($what =~/^\$?Arg\s.*/) {
-      # count arg
-      confess "You can't mix numbered args and unnumbered args in the same signature" unless defined $arg_count;
-      my $local = $arg_count;
-      push @dependencies, sub { shift->req->args->[$local]} ;
-      $arg_count++;
-      next;
-    }
-
-    if($what =~/^\$?Capture\s.*/) {
-      # count arg
-      my $local = $capture_count;
-      confess "You can't mix numbered captures and unnumbered captures in the same signature" unless defined $arg_count;
-      push @dependencies, sub { return $args[$local] };
-      $capture_count++;
-      next
-    }
-
-    if(defined(my $capture_index = ($what =~/^\$?Capture(\d+).*$/i)[0])) {
-      # If they are asking for captures, we look at @args.. sorry
-      my $local = $capture_index;
-      push @dependencies, sub { $args[$local] };
-      next;
-    }
-
-    if(my $model = ($what =~/^Model\:\:(.+)\s+.+$/)[0] || ($what =~/^Model\:\:(.+)/)[0]) {
-      my @inner_deps = ();
-      if(my $extracted = ($model=~/.+?<(.+)>$/)[0]) {
-        @inner_deps = $self->_parse_dependencies($extracted, $ctx, @args);
-        ($model) = ($model =~ /^(.+?)</);
+      if(defined(my $arg_index = ($what =~/^\$?Arg(\d+).*$/i)[0])) {
+        push @dependencies, sub { shift->req->args->[$arg_index] };
+        $arg_count = undef;
+        next;
       }
 
-      push @dependencies, sub {
-        my $c = shift;
-        my ($ret, @rest) = $c->model($model, map { $_->($c) } @inner_deps);
-        warn "$model returns more than one arg" if @rest;
-        return $ret;
-      };
-      next;
-    }
-
-    if(my $view = ($what =~/^View\\:\:(.+)\s+.+$/)[0] || ($what =~/^View\:\:(.+)\s+.+$/)[0]) {
-      my @inner_deps = ();
-      if(my $extracted = ($view=~/.+?<(.+)>$/)[0]) {
-        @inner_deps = $self->_parse_dependencies($extracted, $ctx, @args);
-        ($view) = ($view =~ /^(.+?)</);
+      if($what=~/^\$?Args\s/) {
+        push @dependencies, sub { @{shift->req->args}}; # need to die if this is not the last..
+        next;
       }
 
-      push @dependencies, sub {
-        my $c = shift;
-        my ($ret, @rest) = $c->view($view, map { $_->($c) } @inner_deps);
-        warn "$view returns more than one arg" if @rest;
-        return $ret;
-      };
-      next;
+      if($what =~/^\$?Arg\s.*/) {
+        # count arg
+        confess "You can't mix numbered args and unnumbered args in the same signature" unless defined $arg_count;
+        my $local = $arg_count;
+        push @dependencies, sub { shift->req->args->[$local]} ;
+        $arg_count++;
+        next;
+      }
+
+      if($what =~/^\$?Capture\s.*/) {
+        # count arg
+        my $local = $capture_count;
+        confess "You can't mix numbered captures and unnumbered captures in the same signature" unless defined $arg_count;
+        push @dependencies, sub { my ($c, @args) = @_; return $args[$local] };
+        $capture_count++;
+        next
+      }
+
+      if(defined(my $capture_index = ($what =~/^\$?Capture(\d+).*$/i)[0])) {
+        # If they are asking for captures, we look at @args.. sorry
+        my $local = $capture_index;
+        push @dependencies, sub { my ($c, @args) = @_; $args[$local] };
+        next;
+      }
+
+      if(my $model = ($what =~/^Model\:\:(.+)\s+.+$/)[0] || ($what =~/^Model\:\:(.+)/)[0]) {
+        my @inner_deps = ();
+        if(my $extracted = ($model=~/.+?<(.+)>$/)[0]) {
+          @inner_deps = $self->_parse_dependencies($extracted);
+          ($model) = ($model =~ /^(.+?)</);
+        }
+
+        push @dependencies, sub {
+          my $c = shift;
+          my ($ret, @rest) = $c->model($model, map { $_->($c) } @inner_deps);
+          warn "$model returns more than one arg" if @rest;
+          return $ret;
+        };
+        next;
+      }
+
+      if(my $view = ($what =~/^View\\:\:(.+)\s+.+$/)[0] || ($what =~/^View\:\:(.+)\s+.+$/)[0]) {
+        my @inner_deps = ();
+        if(my $extracted = ($view=~/.+?<(.+)>$/)[0]) {
+          @inner_deps = $self->_parse_dependencies($extracted);
+          ($view) = ($view =~ /^(.+?)</);
+        }
+
+        push @dependencies, sub {
+          my $c = shift;
+          my ($ret, @rest) = $c->view($view, map { $_->($c) } @inner_deps);
+          warn "$view returns more than one arg" if @rest;
+          return $ret;
+        };
+        next;
+      }
+
+      if(my $controller = ($what =~/^Controller\:\:(.+)\s+.+$/)[0] || ($what =~/^Controller\:\:(.+)\s+.+$/)[0]) {
+        push @dependencies, sub {
+          my $c = shift;
+          my ($ret, @rest) = $c->controller($controller);
+          warn "$controller returns more than one arg" if @rest;
+          return $ret;
+        };
+        next;
+      }
+
+      die "Found undefined Token in action $self signature '${\$self->template}' => '$what'";
     }
 
-    if(my $controller = ($what =~/^Controller\:\:(.+)\s+.+$/)[0] || ($what =~/^Controller\:\:(.+)\s+.+$/)[0]) {
-      push @dependencies, sub {
-        my $c = shift;
-        my ($ret, @rest) = $c->controller($controller);
-        warn "$controller returns more than one arg" if @rest;
-        return $ret;
-      };
-      next;
+    unless(scalar @dependencies) {
+      @dependencies = sub { return ($_[0], @{$_[0]->req->args}) };
     }
 
-    die "Found undefined Token in action $self signature '${\$self->template}' => '$what'";
+    return \@dependencies;
   }
-
-  unless(scalar @dependencies) {
-    @dependencies = sub { return ($_[0], @{$_[0]->req->args}) };
-  }
-
-  return @dependencies;
-}
 
 around ['match', 'match_captures'] => sub {
   my ($orig, $self, $ctx, $args) = @_;
@@ -212,13 +219,11 @@ around ['match', 'match_captures'] => sub {
   # So we have to normalize.
   
   my @args = scalar(@{$args||[]}) ?  @{$args||[]} : @{$ctx->req->args||[]};
-  my @dependencies = $self->_parse_dependencies($ctx, @args);
-
 
   my @resolved = ();
-  foreach my $dependency (@dependencies) {
+  foreach my $dependency (@{ $self->prepared_dependencies }) {
     return 0 unless defined($dependency);
-    push @resolved, $dependency->($ctx);
+    push @resolved, $dependency->($ctx, @args);
   }
 
   my $stash_key = $self .'__method_signature_dependencies';
