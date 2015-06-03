@@ -3,7 +3,7 @@ package Catalyst::ActionRole::MethodSignatureDependencyInjection;
 use Moose::Role;
 use Carp;
 
-our $VERSION = '0.011';
+our $VERSION = '0.012';
 
 has use_prototype => (
   is=>'ro',
@@ -162,7 +162,7 @@ has prepared_dependencies => (
         next;
       }
 
-      if(my $model = ($what =~/^Model\:\:(.+)\s+.+$/)[0] || ($what =~/^Model\:\:(.+)/)[0]) {
+      if(my $model = ($what =~/^Model\:\:(.+?)\s+.+$/)[0] || ($what =~/^Model\:\:(.+)/)[0]) {
         my @inner_deps = ();
         if(my $extracted = ($model=~/.+?<(.+)>$/)[0]) {
           @inner_deps = $self->_parse_dependencies($extracted);
@@ -170,15 +170,20 @@ has prepared_dependencies => (
         }
 
         push @dependencies, $method->(sub {
-          my $c = shift;
-          my ($ret, @rest) = $c->model($model, map { $_->($c) } @inner_deps);
+          my ($c, @args) = @_;
+
+          # Make sure the $model is a component we already know about.
+          die "$model is not a defined component"
+            unless $c->components->{ ref($c).'::Model::'.$model };
+
+          my ($ret, @rest) = $c->model($model, map { $_->($c, @args) } @inner_deps);
           warn "$model returns more than one arg" if @rest;
           return $ret;
         });
         next;
       }
 
-      if(my $view = ($what =~/^View\\:\:(.+)\s+.+$/)[0] || ($what =~/^View\:\:(.+)\s+.+$/)[0]) {
+      if(my $view = ($what =~/^View\\:\:(.+?)\s+.+$/)[0] || ($what =~/^View\:\:(.+)\s+.+$/)[0]) {
         my @inner_deps = ();
         if(my $extracted = ($view=~/.+?<(.+)>$/)[0]) {
           @inner_deps = $self->_parse_dependencies($extracted);
@@ -186,17 +191,27 @@ has prepared_dependencies => (
         }
 
         push @dependencies, $method->(sub {
-          my $c = shift;
-          my ($ret, @rest) = $c->view($view, map { $_->($c) } @inner_deps);
+          my ($c, @args) = @_;
+
+          # Make sure the $view is a component we already know about.
+          die "$view is not a defined component"
+            unless $c->components->{ ref($c).'::View::'.$view };
+
+          my ($ret, @rest) = $c->view($view, map { $_->($c, @args) } @inner_deps);
           warn "$view returns more than one arg" if @rest;
           return $ret;
         });
         next;
       }
 
-      if(my $controller = ($what =~/^Controller\:\:(.+)\s+.+$/)[0] || ($what =~/^Controller\:\:(.+)\s+.+$/)[0]) {
+      if(my $controller = ($what =~/^Controller\:\:(.+?)\s+.+$/)[0] || ($what =~/^Controller\:\:(.+)\s+.+$/)[0]) {
         push @dependencies, $method->(sub {
           my $c = shift;
+
+          # Make sure the $controller is a component we already know about.
+          die "$controller is not a defined component"
+            unless $c->components->{ ref($c).'::Controller::'.$controller };
+
           my ($ret, @rest) = $c->controller($controller);
           warn "$controller returns more than one arg" if @rest;
           return $ret;
@@ -231,8 +246,11 @@ around ['match', 'match_captures'] => sub {
     my $required = $dependency=~m/not_required/ ? 0:1;
     if($required) {
       my $ret = $$dependency->($ctx, @args);
-      return 0 unless $ret;
-      push @resolved, $ret;
+      unless($ret) {
+        return 0;
+      } else {
+        push @resolved, $ret;
+      }
     } else {
       push @resolved, $dependency;
     }

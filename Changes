@@ -1,5 +1,11 @@
 # This file documents the revision history for Perl extension Catalyst::ActionRole::MethodSignatureDependencyInjection.
 
+0.012 - 2015-06-03
+  - More strict checking of your injected components to make sure they
+    are an already defined component.
+  - Tweaked some regexp to make sure we more carefully extract a component
+    name from the signature.
+
 0.011 - 2015-06-03
   - Dependency injection rules are now precompiled and stored.  This
     should result in some minor runtime efficiency.
