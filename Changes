@@ -1,5 +1,15 @@
 # This file documents the revision history for Perl extension Catalyst::ActionRole::MethodSignatureDependencyInjection.
 
+0.011 - 2015-06-03
+  - Dependency injection rules are now precompiled and stored.  This
+    should result in some minor runtime efficiency.
+  - You now need to declare injected component as 'required' if you
+    want to resolve them during match/ match_captures.  This is because
+    context is not complete at match/match_captures phase and if you have
+    a model that ACCEPT_CONTEXT you may wish to defer injection until
+    execute phase when it is complete.  Its also I think less surprising
+    behavior.
+
 0.010 - 2015-05-30
   - Better errors when you make a bad signature.
   - moved Catalyst::ActionSignatures out to its own distribution

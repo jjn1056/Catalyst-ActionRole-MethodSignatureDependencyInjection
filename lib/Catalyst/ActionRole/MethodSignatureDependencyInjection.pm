@@ -3,7 +3,7 @@ package Catalyst::ActionRole::MethodSignatureDependencyInjection;
 use Moose::Role;
 use Carp;
 
-our $VERSION = '0.010';
+our $VERSION = '0.011';
 
 has use_prototype => (
   is=>'ro',
@@ -102,6 +102,9 @@ has prepared_dependencies => (
   lazy=>1,
   builder=>'_build_prepared_dependencies');
 
+  sub not_required { return bless \(my $cb = shift), __PACKAGE__.'::not_required'; }
+  sub required { return bless \(my $cb = shift), __PACKAGE__.'required'; }
+
   sub _build_prepared_dependencies {
     my ($self) = @_;
     my @what = @{$self->dependency_builder};
@@ -109,28 +112,28 @@ has prepared_dependencies => (
     my $capture_count = 0;
     my @dependencies = ();
     while(my $what = shift @what) {
-
-      do { push @dependencies, sub { shift }; next } if lc($what) eq '$ctx';
-      do { push @dependencies, sub { shift }; next }  if lc($what) eq '$c';
-      do { push @dependencies, sub { shift->req }; next }  if lc($what) eq '$req';
-      do { push @dependencies, sub { shift->res }; next }  if lc($what) eq '$res';
-      do { push @dependencies, sub { shift->req->args}; next }  if lc($what) eq '$args';
-      do { push @dependencies, sub { shift->req->body_data||+{} }; next }   if lc($what) eq '$bodydata';
-      do { push @dependencies, sub { shift->req->body_parameters}; next }  if lc($what) eq '$bodyparams';
-      do { push @dependencies, sub { shift->req->query_parameters}; next }  if lc($what) eq '$queryparams';
+      my $method = $what =~m/required/ ? sub {required(shift) } : sub { not_required(shift) };
+      do { push @dependencies, $method->(sub { shift }); next } if lc($what) eq '$ctx';
+      do { push @dependencies, $method->(sub { shift }); next }  if lc($what) eq '$c';
+      do { push @dependencies, $method->(sub { shift->req }); next }  if lc($what) eq '$req';
+      do { push @dependencies, $method->(sub { shift->res }); next }  if lc($what) eq '$res';
+      do { push @dependencies, $method->(sub { shift->req->args}); next }  if lc($what) eq '$args';
+      do { push @dependencies, $method->(sub { shift->req->body_data||+{} }); next }   if lc($what) eq '$bodydata';
+      do { push @dependencies, $method->(sub { shift->req->body_parameters}); next }  if lc($what) eq '$bodyparams';
+      do { push @dependencies, $method->(sub { shift->req->query_parameters}); next }  if lc($what) eq '$queryparams';
 
       #This will blow stuff up unless its the last...
-      do { push @dependencies, sub { @{shift->req->args}} ; next }  if lc($what) eq '@args';
-      do { push @dependencies, sub { @{shift->req->body_parameters}}; next }  if lc($what) eq '%bodyparams';
+      do { push @dependencies, $method->(sub { @{shift->req->args}}) ; next }  if lc($what) eq '@args';
+      do { push @dependencies, $method->(sub { @{shift->req->body_parameters}}); next }  if lc($what) eq '%bodyparams';
 
       if(defined(my $arg_index = ($what =~/^\$?Arg(\d+).*$/i)[0])) {
-        push @dependencies, sub { shift->req->args->[$arg_index] };
+        push @dependencies, $method->(sub { shift->req->args->[$arg_index] });
         $arg_count = undef;
         next;
       }
 
       if($what=~/^\$?Args\s/) {
-        push @dependencies, sub { @{shift->req->args}}; # need to die if this is not the last..
+        push @dependencies, $method->(sub { @{shift->req->args}}); # need to die if this is not the last..
         next;
       }
 
@@ -138,7 +141,7 @@ has prepared_dependencies => (
         # count arg
         confess "You can't mix numbered args and unnumbered args in the same signature" unless defined $arg_count;
         my $local = $arg_count;
-        push @dependencies, sub { shift->req->args->[$local]} ;
+        push @dependencies, $method->(sub { shift->req->args->[$local]}) ;
         $arg_count++;
         next;
       }
@@ -147,7 +150,7 @@ has prepared_dependencies => (
         # count arg
         my $local = $capture_count;
         confess "You can't mix numbered captures and unnumbered captures in the same signature" unless defined $arg_count;
-        push @dependencies, sub { my ($c, @args) = @_; return $args[$local] };
+        push @dependencies, $method->(sub { my ($c, @args) = @_; return $args[$local] });
         $capture_count++;
         next
       }
@@ -155,7 +158,7 @@ has prepared_dependencies => (
       if(defined(my $capture_index = ($what =~/^\$?Capture(\d+).*$/i)[0])) {
         # If they are asking for captures, we look at @args.. sorry
         my $local = $capture_index;
-        push @dependencies, sub { my ($c, @args) = @_; $args[$local] };
+        push @dependencies, $method->(sub { my ($c, @args) = @_; $args[$local] });
         next;
       }
 
@@ -166,12 +169,12 @@ has prepared_dependencies => (
           ($model) = ($model =~ /^(.+?)</);
         }
 
-        push @dependencies, sub {
+        push @dependencies, $method->(sub {
           my $c = shift;
           my ($ret, @rest) = $c->model($model, map { $_->($c) } @inner_deps);
           warn "$model returns more than one arg" if @rest;
           return $ret;
-        };
+        });
         next;
       }
 
@@ -182,22 +185,22 @@ has prepared_dependencies => (
           ($view) = ($view =~ /^(.+?)</);
         }
 
-        push @dependencies, sub {
+        push @dependencies, $method->(sub {
           my $c = shift;
           my ($ret, @rest) = $c->view($view, map { $_->($c) } @inner_deps);
           warn "$view returns more than one arg" if @rest;
           return $ret;
-        };
+        });
         next;
       }
 
       if(my $controller = ($what =~/^Controller\:\:(.+)\s+.+$/)[0] || ($what =~/^Controller\:\:(.+)\s+.+$/)[0]) {
-        push @dependencies, sub {
+        push @dependencies, $method->(sub {
           my $c = shift;
           my ($ret, @rest) = $c->controller($controller);
           warn "$controller returns more than one arg" if @rest;
           return $ret;
-        };
+        });
         next;
       }
 
@@ -205,7 +208,10 @@ has prepared_dependencies => (
     }
 
     unless(scalar @dependencies) {
-      @dependencies = sub { return ($_[0], @{$_[0]->req->args}) };
+      @dependencies = (
+        not_required(sub { return $_[0] }),
+        not_required(sub { return @{$_[0]->req->args} }),
+      );
     }
 
     return \@dependencies;
@@ -222,8 +228,14 @@ around ['match', 'match_captures'] => sub {
 
   my @resolved = ();
   foreach my $dependency (@{ $self->prepared_dependencies }) {
-    return 0 unless defined($dependency);
-    push @resolved, $dependency->($ctx, @args);
+    my $required = $dependency=~m/not_required/ ? 0:1;
+    if($required) {
+      my $ret = $$dependency->($ctx, @args);
+      return 0 unless $ret;
+      push @resolved, $ret;
+    } else {
+      push @resolved, $dependency;
+    }
   }
 
   my $stash_key = $self .'__method_signature_dependencies';
@@ -234,7 +246,8 @@ around ['match', 'match_captures'] => sub {
 around 'execute', sub {
   my ($orig, $self, $controller, $ctx, @args) = @_;
   my $stash_key = $self .'__method_signature_dependencies';
-  my @dependencies = @{delete $ctx->stash->{$stash_key}};
+  my @dependencies = map { $_=~m/not_required/ ? $$_->($ctx, @args) : $_ }  
+    @{delete $ctx->stash->{$stash_key}};
 
   return $self->$orig($controller, @dependencies);
 };
@@ -249,27 +262,53 @@ Catalyst::ActionRole::MethodSignatureDependencyInjection - Experimental Action S
 
 Attribute syntax:
 
-  package MyApp::Controller
-  use base 'Catalyst::Controller';
+    package MyApp::Controller
+    use base 'Catalyst::Controller';
 
-  sub test_model :Local :Does(MethodSignatureDependencyInjection)
-    ExecuteArgsTemplate($c, $Req, $Res, $BodyData, $BodyParams, $QueryParams, Model::A, Model::B)
-  {
-    my ($self, $c, $Req, $Res, $Data, $Params, $Query, $A, $B) = @_;
-  }
+    sub test_model :Local :Does(MethodSignatureDependencyInjection)
+      ExecuteArgsTemplate($c, $Req, $Res, $BodyData, $BodyParams, $QueryParams, Model::A, Model::B)
+    {
+      my ($self, $c, $Req, $Res, $Data, $Params, $Query, $A, $B) = @_;
+    }
 
 Prototype syntax
 
-  package MyApp::Controller
-  use base 'Catalyst::Controller';
+    package MyApp::Controller
+    use base 'Catalyst::Controller';
 
-  no warnings::illegalproto;
+    no warnings::illegalproto;
 
-  sub test_model($c, $Req, $Res, $BodyData, $BodyParams, $QueryParams, Model::A required, Model::B)
-    :Local :Does(MethodSignatureDependencyInjection) UsePrototype(1)
-  {
-    my ($self, $c, $Req, $Res, $Data, $Params, $Query, $A, $B) = @_;
-  }
+    sub test_model($c, $Req, $Res, $BodyData, $BodyParams, $QueryParams, Model::A required, Model::B)
+      :Local :Does(MethodSignatureDependencyInjection) UsePrototype(1)
+    {
+      my ($self, $c, $Req, $Res, $Data, $Params, $Query, $A, $B) = @_;
+    }
+
+With required model injection:
+
+    package MyApp::Controller
+    use base 'Catalyst::Controller';
+
+    no warnings::illegalproto;
+
+    sub chainroot :Chained(/) PathPrefix CaptureArgs(0) {  }
+
+      sub no_null_chain_1( $c, Model::ReturnsNull, Model::ReturnsTrue)
+       :Chained(chainroot) PathPart('no_null_chain')
+       :Does(MethodSignatureDependencyInjection) UsePrototype(1)
+      {
+        my ($self, $c) = @_;
+        return $c->res->body('no_null_chain_1');
+      }
+
+      sub no_null_chain_2( $c, Model::ReturnsNull required, Model::ReturnsTrue required) 
+       :Chained(chainroot) PathPart('no_null_chain')
+       :Does(MethodSignatureDependencyInjection) UsePrototype(1)
+      {
+        my ($self, $c) = @_;
+        return $c->res->body('no_null_chain_2');
+      }
+
 
 =head1 WARNING
 
@@ -441,6 +480,28 @@ You can also pass arguments to your models.  For example:
     ExecuteArgsTemplate(Model::UserForm<Model::User>)
 
 same as $c->model('UserForm', $c->model('User'));
+
+=head1 Component Modifiers
+
+=head2 required
+
+Used to declare a component injection (Model, View or Controller) is 'required'.  This means
+it must return something that Perl thinks of as true (for now we exclude both undef and 0 since
+I think that is less surprising and the use cases where a model validately return 0 seems
+small).  When a component is required, we resolve it during the match/match_captures phase of
+dispatch and the action will fail to match should the component fail the required condition.
+Useful if you use models as a we to determine if an action should run or no.
+
+B<NOTE> Since 'required' components get resolved during the match/match_captures phase, this
+means that certain parts of the context have not been completed.  For example $c->action will
+be null (since we have not yet determined a matching action or not).  If your model does
+ACCEPT_CONTEXT and need $c->action, it cannot be required.  I think this is the main thing
+undefined with context at this phase but other bits may emerge so test carefully.
+
+=head1 Integration with Catalyst::ActionSignatures
+
+This action role will work with L<Catalyst::ActionSignatures> automatically and
+all features are present.
 
 =head1 Integration with Function::Parameters
 
