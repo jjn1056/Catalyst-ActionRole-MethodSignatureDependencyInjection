@@ -103,52 +103,49 @@ sub _parse_dependencies {
   my @dependencies = ();
   while(my $what = shift @what) {
 
-    do { push @dependencies, sub { shift }; next } if lc($what) eq '$ctx';
-    do { push @dependencies, sub { shift }; next }  if lc($what) eq '$c';
-    do { push @dependencies, sub { shift->req }; next }  if lc($what) eq '$req';
-    do { push @dependencies, sub { shift->res }; next }  if lc($what) eq '$res';
-    do { push @dependencies, sub { shift->req->args}; next }  if lc($what) eq '$args';
-    do { push @dependencies, sub { shift->req->body_data||+{} }; next }   if lc($what) eq '$bodydata';
-    do { push @dependencies, sub { shift->req->body_parameters}; next }  if lc($what) eq '$bodyparams';
-    do { push @dependencies, sub { shift->req->query_parameters}; next }  if lc($what) eq '$queryparams';
+    do { push @dependencies, $ctx; next } if lc($what) eq '$ctx';
+    do { push @dependencies, $ctx; next }  if lc($what) eq '$c';
+    do { push @dependencies, $ctx->req; next }  if lc($what) eq '$req';
+    do { push @dependencies, $ctx->res; next }  if lc($what) eq '$res';
+    do { push @dependencies, $ctx->req->args; next }  if lc($what) eq '$args';
+    do { push @dependencies, $ctx->req->body_data||+{}; next }   if lc($what) eq '$bodydata';
+    do { push @dependencies, $ctx->req->body_parameters; next }  if lc($what) eq '$bodyparams';
+    do { push @dependencies, $ctx->req->query_parameters; next }  if lc($what) eq '$queryparams';
 
     #This will blow stuff up unless its the last...
-    do { push @dependencies, sub { @{shift->req->args}} ; next }  if lc($what) eq '@args';
-    do { push @dependencies, sub { @{shift->req->body_parameters}}; next }  if lc($what) eq '%bodyparams';
+    do { push @dependencies, @{$ctx->req->args}; next }  if lc($what) eq '@args';
+    do { push @dependencies, @{$ctx->req->body_parameters}; next }  if lc($what) eq '%bodyparams';
 
     if(defined(my $arg_index = ($what =~/^\$?Arg(\d+).*$/i)[0])) {
-      push @dependencies, sub { shift->req->args->[$arg_index] };
+      push @dependencies, $ctx->req->args->[$arg_index];
       $arg_count = undef;
       next;
     }
 
     if($what=~/^\$?Args\s/) {
-      push @dependencies, sub { @{shift->req->args}}; # need to die if this is not the last..
+      push @dependencies, @{$ctx->req->args}; # need to die if this is not the last..
       next;
     }
 
     if($what =~/^\$?Arg\s.*/) {
       # count arg
       confess "You can't mix numbered args and unnumbered args in the same signature" unless defined $arg_count;
-      my $local = $arg_count;
-      push @dependencies, sub { shift->req->args->[$local]} ;
+      push @dependencies, $ctx->req->args->[$arg_count];
       $arg_count++;
       next;
     }
 
     if($what =~/^\$?Capture\s.*/) {
       # count arg
-      my $local = $capture_count;
       confess "You can't mix numbered captures and unnumbered captures in the same signature" unless defined $arg_count;
-      push @dependencies, sub { return $args[$local] };
+      push @dependencies, $args[$capture_count];
       $capture_count++;
       next
     }
 
     if(defined(my $capture_index = ($what =~/^\$?Capture(\d+).*$/i)[0])) {
       # If they are asking for captures, we look at @args.. sorry
-      my $local = $capture_index;
-      push @dependencies, sub { $args[$local] };
+      push @dependencies, $args[$capture_index];
       next;
     }
 
@@ -159,12 +156,10 @@ sub _parse_dependencies {
         ($model) = ($model =~ /^(.+?)</);
       }
 
-      push @dependencies, sub {
-        my $c = shift;
-        my ($ret, @rest) = $c->model($model, map { $_->($c) } @inner_deps);
-        warn "$model returns more than one arg" if @rest;
-        return $ret;
-      };
+      my ($ret, @rest) = $ctx->model($model, @inner_deps);
+      warn "$model returns more than one arg" if @rest;
+      warn "$model is not defined, action will not match" unless defined $ret;
+      push @dependencies, $ret;
       next;
     }
 
@@ -175,22 +170,18 @@ sub _parse_dependencies {
         ($view) = ($view =~ /^(.+?)</);
       }
 
-      push @dependencies, sub {
-        my $c = shift;
-        my ($ret, @rest) = $c->view($view, map { $_->($c) } @inner_deps);
-        warn "$view returns more than one arg" if @rest;
-        return $ret;
-      };
+      my ($ret, @rest) = $ctx->view($view, @inner_deps);
+      warn "$view returns more than one arg" if @rest;
+      warn "$view is not defined, action will not match" unless defined $ret;
+      push @dependencies, $ret;
       next;
     }
 
     if(my $controller = ($what =~/^Controller\:\:(.+)\s+.+$/)[0] || ($what =~/^Controller\:\:(.+)\s+.+$/)[0]) {
-      push @dependencies, sub {
-        my $c = shift;
-        my ($ret, @rest) = $c->controller($controller);
-        warn "$controller returns more than one arg" if @rest;
-        return $ret;
-      };
+      my ($ret, @rest) = $ctx->controller($controller);
+      warn "$controller returns more than one arg" if @rest;
+      warn "$controller is not defined, action will not match" unless defined $ret;
+      push @dependencies, $ret;
       next;
     }
 
@@ -198,7 +189,7 @@ sub _parse_dependencies {
   }
 
   unless(scalar @dependencies) {
-    @dependencies = sub { return ($_[0], @{$_[0]->req->args}) };
+    @dependencies = ($ctx, @{$ctx->req->args});
   }
 
   return @dependencies;
@@ -210,19 +201,15 @@ around ['match', 'match_captures'] => sub {
 
   # For chain captures, we find @args, but not for args...
   # So we have to normalize.
-  
   my @args = scalar(@{$args||[]}) ?  @{$args||[]} : @{$ctx->req->args||[]};
   my @dependencies = $self->_parse_dependencies($ctx, @args);
 
-
-  my @resolved = ();
   foreach my $dependency (@dependencies) {
     return 0 unless defined($dependency);
-    push @resolved, $dependency->($ctx);
   }
 
   my $stash_key = $self .'__method_signature_dependencies';
-  $ctx->stash($stash_key=>\@resolved);
+  $ctx->stash($stash_key=>\@dependencies);
   return 1;
 };
 
@@ -260,7 +247,7 @@ Prototype syntax
 
   no warnings::illegalproto;
 
-  sub test_model($c, $Req, $Res, $BodyData, $BodyParams, $QueryParams, Model::A required, Model::B)
+  sub test_model($c, $Req, $Res, $BodyData, $BodyParams, $QueryParams, Model::A, Model::B)
     :Local :Does(MethodSignatureDependencyInjection) UsePrototype(1)
   {
     my ($self, $c, $Req, $Res, $Data, $Params, $Query, $A, $B) = @_;
