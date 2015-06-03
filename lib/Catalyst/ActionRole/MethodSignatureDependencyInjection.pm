@@ -234,7 +234,7 @@ around ['match', 'match_captures'] => sub {
 around 'execute', sub {
   my ($orig, $self, $controller, $ctx, @args) = @_;
   my $stash_key = $self .'__method_signature_dependencies';
-  my @dependencies = @{$ctx->stash->{$stash_key}};
+  my @dependencies = @{delete $ctx->stash->{$stash_key}};
 
   return $self->$orig($controller, @dependencies);
 };
