@@ -63,7 +63,7 @@ sub parse_injection_spec_section {
 
   # These Regexps could be better to allow more whitespace.
   my $p = qr/[^,]+/;
-  my $p2 = qr/$p<.+?>/x;
+  my $p2 = qr/$p<.+?>$p/x;
 
   $_[1]=~/\s*($p2|$p)\s*/gxc;
 
@@ -80,6 +80,13 @@ has dependency_builder => (
   sub _dependency_builder {
     my $self = shift;
     my $template = $self->template;
+    my @parsed = $self->_parse_dependencies($template);
+
+    return \@parsed;
+  }
+
+  sub _parse_dependencies {
+    my ($self, $template) = @_;
     my @what = ();
     for($template) {
       PARSE: {
@@ -92,7 +99,7 @@ has dependency_builder => (
       }
     }
 
-    return \@what;
+    return @what;
   }
 
 has prepared_dependencies => (
@@ -105,9 +112,8 @@ has prepared_dependencies => (
   sub not_required { return bless \(my $cb = shift), __PACKAGE__.'::not_required'; }
   sub required { return bless \(my $cb = shift), __PACKAGE__.'required'; }
 
-  sub _build_prepared_dependencies {
-    my ($self) = @_;
-    my @what = @{$self->dependency_builder};
+  sub _prepare_dependencies {
+    my ($self, @what) = @_;
     my $arg_count = 0;
     my $capture_count = 0;
     my @dependencies = ();
@@ -137,7 +143,7 @@ has prepared_dependencies => (
         next;
       }
 
-      if($what =~/^\$?Arg\s.*/) {
+      if($what =~/^\$?Arg\s?.*/) {
         # count arg
         confess "You can't mix numbered args and unnumbered args in the same signature" unless defined $arg_count;
         my $local = $arg_count;
@@ -146,7 +152,7 @@ has prepared_dependencies => (
         next;
       }
 
-      if($what =~/^\$?Capture\s.*/) {
+      if($what =~/^\$?Capture\s?.*/) {
         # count arg
         my $local = $capture_count;
         confess "You can't mix numbered captures and unnumbered captures in the same signature" unless defined $arg_count;
@@ -165,7 +171,7 @@ has prepared_dependencies => (
       if(my $model = ($what =~/^Model\:\:(.+?)\s+.+$/)[0] || ($what =~/^Model\:\:(.+)/)[0]) {
         my @inner_deps = ();
         if(my $extracted = ($model=~/.+?<(.+)>$/)[0]) {
-          @inner_deps = $self->_parse_dependencies($extracted);
+          @inner_deps = $self->_prepare_dependencies($self->_parse_dependencies($extracted));
           ($model) = ($model =~ /^(.+?)</);
         }
 
@@ -176,7 +182,7 @@ has prepared_dependencies => (
           die "$model is not a defined component"
             unless $c->components->{ ref($c).'::Model::'.$model };
 
-          my ($ret, @rest) = $c->model($model, map { $_->($c, @args) } @inner_deps);
+          my ($ret, @rest) = $c->model($model, map { $$_->($c, @args) } @inner_deps);
           warn "$model returns more than one arg" if @rest;
           return $ret;
         });
@@ -186,7 +192,7 @@ has prepared_dependencies => (
       if(my $view = ($what =~/^View\\:\:(.+?)\s+.+$/)[0] || ($what =~/^View\:\:(.+)\s+.+$/)[0]) {
         my @inner_deps = ();
         if(my $extracted = ($view=~/.+?<(.+)>$/)[0]) {
-          @inner_deps = $self->_parse_dependencies($extracted);
+          @inner_deps = $self->_prepare_dependencies($self->_parse_dependencies($extracted));
           ($view) = ($view =~ /^(.+?)</);
         }
 
@@ -197,7 +203,7 @@ has prepared_dependencies => (
           die "$view is not a defined component"
             unless $c->components->{ ref($c).'::View::'.$view };
 
-          my ($ret, @rest) = $c->view($view, map { $_->($c, @args) } @inner_deps);
+          my ($ret, @rest) = $c->view($view, map { $$_->($c, @args) } @inner_deps);
           warn "$view returns more than one arg" if @rest;
           return $ret;
         });
@@ -229,7 +235,13 @@ has prepared_dependencies => (
       );
     }
 
-    return \@dependencies;
+    return @dependencies;
+  }
+
+  sub _build_prepared_dependencies {
+    my ($self) = @_;
+    my @what = @{$self->dependency_builder};
+    return [ $self->_prepare_dependencies(@what) ];
   }
 
 around ['match', 'match_captures'] => sub {
