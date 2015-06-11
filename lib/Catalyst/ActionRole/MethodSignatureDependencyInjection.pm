@@ -3,7 +3,7 @@ package Catalyst::ActionRole::MethodSignatureDependencyInjection;
 use Moose::Role;
 use Carp;
 
-our $VERSION = '0.012';
+our $VERSION = '0.013';
 
 has use_prototype => (
   is=>'ro',
@@ -168,18 +168,37 @@ has prepared_dependencies => (
         next;
       }
 
-      if(my $model = ($what =~/^Model\:\:(.+?)\s+.+$/)[0] || ($what =~/^Model\:\:(.+)/)[0]) {
+      if($what=~/^Model\:\:/i) {
+        # Its a model. Could be:
+        #   -- Model::Foo
+        #   -- Model::Foo $foo
+        #   -- Model::Foo $foo isa Int
+        #   -- Model::Foo $foo isa Int required
+        #   -- Model::Foo<$params>
+        #   -- Model::Foo<$params> $foo
+        #   -- Model::Foo<$params> $foo isa Int
+        #   -- Model::Foo<$params> $foo isa Int required
+        #   For where $params is any sort of parsable spec (Arg, Arg $id, Arg $id isa Int, ...)
+  
+        # first get the model name
         my @inner_deps = ();
-        if(my $extracted = ($model=~/.+?<(.+)>$/)[0]) {
-          @inner_deps = $self->_prepare_dependencies($self->_parse_dependencies($extracted));
-          ($model) = ($model =~ /^(.+?)</);
+        my ($model) = ($what=~m/^Model\:\:([\w\:]+)/i);
+
+        die "Can't seem to extract a model name from '$what'!" unless $model;
+
+        my ($rest) = ($what =~/<([^>]+)/);
+
+        # Is the model parameterized??
+        if(defined($rest)) {
+           @inner_deps = $self->_prepare_dependencies($self->_parse_dependencies($rest));
         }
 
+        push @dependencies, @inner_deps if @inner_deps;
         push @dependencies, $method->(sub {
           my ($c, @args) = @_;
 
           # Make sure the $model is a component we already know about.
-          die "$model is not a defined component"
+          die "'$model' is not a defined component (parsed out of '$what'"
             unless $c->components->{ ref($c).'::Model::'.$model };
 
           my ($ret, @rest) = $c->model($model, map { $$_->($c, @args) } @inner_deps);
@@ -189,18 +208,23 @@ has prepared_dependencies => (
         next;
       }
 
-      if(my $view = ($what =~/^View\\:\:(.+?)\s+.+$/)[0] || ($what =~/^View\:\:(.+)\s+.+$/)[0]) {
+      if($what=~/^View\:\:/i) {
         my @inner_deps = ();
-        if(my $extracted = ($view=~/.+?<(.+)>$/)[0]) {
-          @inner_deps = $self->_prepare_dependencies($self->_parse_dependencies($extracted));
-          ($view) = ($view =~ /^(.+?)</);
+        my ($view) = ($what=~m/^View\:\:([\w\:]+)/i);
+
+        die "Can't seem to extract a view name from '$what'!" unless $view;
+
+        my ($rest) = ($what =~/<([^>]+)/);
+
+        if(defined($rest)) {
+           @inner_deps = $self->_prepare_dependencies($self->_parse_dependencies($rest));
         }
 
+        push @dependencies, @inner_deps if @inner_deps;
         push @dependencies, $method->(sub {
           my ($c, @args) = @_;
 
-          # Make sure the $view is a component we already know about.
-          die "$view is not a defined component"
+          die "'$view' is not a defined component (parsed out of '$what'"
             unless $c->components->{ ref($c).'::View::'.$view };
 
           my ($ret, @rest) = $c->view($view, map { $$_->($c, @args) } @inner_deps);
