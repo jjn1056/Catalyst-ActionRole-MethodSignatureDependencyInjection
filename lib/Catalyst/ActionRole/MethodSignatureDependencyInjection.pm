@@ -3,7 +3,7 @@ package Catalyst::ActionRole::MethodSignatureDependencyInjection;
 use Moose::Role;
 use Carp;
 
-our $VERSION = '0.013';
+our $VERSION = '0.014';
 
 has use_prototype => (
   is=>'ro',
@@ -132,6 +132,11 @@ has prepared_dependencies => (
       do { push @dependencies, $method->(sub { @{shift->req->args}}) ; next }  if lc($what) eq '@args';
       do { push @dependencies, $method->(sub { @{shift->req->body_parameters}}); next }  if lc($what) eq '%bodyparams';
 
+      # Default view and model
+      # For now default model / view can't be parameterized.
+      do { push @dependencies, $method->(sub { shift->model}) ; next }  if($what =~/^Model/ && $what!~/^Model\:/);
+      do { push @dependencies, $method->(sub { shift->view}) ; next }  if($what =~/^View/ && $what!~/^View\:/);
+ 
       if(defined(my $arg_index = ($what =~/^\$?Arg(\d+).*$/i)[0])) {
         push @dependencies, $method->(sub { shift->req->args->[$arg_index] });
         $arg_count = undef;
@@ -534,6 +539,40 @@ You can also pass arguments to your models.  For example:
     ExecuteArgsTemplate(Model::UserForm<Model::User>)
 
 same as $c->model('UserForm', $c->model('User'));
+
+=head1 Default Components
+
+You may specify the current view or model by just using the declaration 'Model'
+or 'View'.  For example:
+
+    package MyApp;
+    use Catalyst;
+    
+    # We assume MyApp::Model::Default
+    MyApp->config(default_model=>'Default');
+    MyApp->setup;
+
+
+    sub default_model($res,Model) :Local 
+     :Does(MethodSignatureDependencyInjection) UsePrototype(1)
+    {
+      my ($self, $res, $model) = @_;
+      $res->body($model); # isa Model::Default
+    }
+
+    sub chainroot :Chained(/) PathPrefix CaptureArgs(0) {
+      my ($self, $ctx) = @_;
+      $ctx->stash(current_model_instance => 100);
+    }
+
+      sub default_again($res,Model required) :Chained(chainroot)
+       :Does(MethodSignatureDependencyInjection) UsePrototype(1)
+      {
+        my ($self, $res, $model) = @_;
+        return $res->body($model);  # is 100
+      }
+
+Can be useful to help make controllers less tightly bound.
 
 =head1 Component Modifiers
 

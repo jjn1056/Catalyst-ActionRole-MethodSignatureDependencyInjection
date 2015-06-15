@@ -1,5 +1,9 @@
 # This file documents the revision history for Perl extension Catalyst::ActionRole::MethodSignatureDependencyInjection.
 
+0.014 - 2015-06-14
+  - Shortcut to get the current view or model in the declaration, for example
+    "sub myaction(View $v, Model $m) { .. }".
+
 0.013 - 2015-06-11
   - Lots of little parser improvements to handle more edge cases, particularly
     with parameterized models.
