@@ -447,6 +447,7 @@ The current L<Catalyst::Response>
 An arrayref of the current args
 
 =head2 args
+
 =head2 @args
 
 An array of the current args.  Only makes sense if this is the last specified
