@@ -3,7 +3,7 @@ package Catalyst::ActionRole::MethodSignatureDependencyInjection;
 use Moose::Role;
 use Carp;
 
-our $VERSION = '0.014';
+our $VERSION = '0.015';
 
 has use_prototype => (
   is=>'ro',
@@ -121,8 +121,14 @@ has prepared_dependencies => (
       my $method = $what =~m/required/ ? sub {required(shift) } : sub { not_required(shift) };
       do { push @dependencies, $method->(sub { shift }); next } if lc($what) eq '$ctx';
       do { push @dependencies, $method->(sub { shift }); next }  if lc($what) eq '$c';
+      do { push @dependencies, $method->(sub { shift->state }); next }  if lc($what) eq '$state';
       do { push @dependencies, $method->(sub { shift->req }); next }  if lc($what) eq '$req';
+      do { push @dependencies, $method->(sub { shift->req }); next }  if lc($what) eq '$request';
+      do { push @dependencies, $method->(sub { shift->req->env }); next }  if lc($what) eq '$env';
+
       do { push @dependencies, $method->(sub { shift->res }); next }  if lc($what) eq '$res';
+      do { push @dependencies, $method->(sub { shift->res }); next }  if lc($what) eq '$response';
+
       do { push @dependencies, $method->(sub { shift->req->args}); next }  if lc($what) eq '$args';
       do { push @dependencies, $method->(sub { shift->req->body_data||+{} }); next }   if lc($what) eq '$bodydata';
       do { push @dependencies, $method->(sub { shift->req->body_parameters}); next }  if lc($what) eq '$bodyparams';
@@ -131,6 +137,11 @@ has prepared_dependencies => (
       #This will blow stuff up unless its the last...
       do { push @dependencies, $method->(sub { @{shift->req->args}}) ; next }  if lc($what) eq '@args';
       do { push @dependencies, $method->(sub { @{shift->req->body_parameters}}); next }  if lc($what) eq '%bodyparams';
+      do { push @dependencies, $method->(sub { @{shift->req->body_data||+{}}}); next }  if lc($what) eq '%bodydata';
+
+      do { push @dependencies, $method->(sub { @{shift->req->query_parameters}}); next }  if lc($what) eq '%queryparams';
+      do { push @dependencies, $method->(sub { @{shift->req->body_data||+{}}}); next }  if lc($what) eq '%body';
+      do { push @dependencies, $method->(sub { @{shift->req->query_parameters}}); next }  if lc($what) eq '%query';
 
       # Default view and model
       # For now default model / view can't be parameterized.
@@ -148,7 +159,7 @@ has prepared_dependencies => (
         next;
       }
 
-      if($what =~/^\$?Arg\s?.*/) {
+      if($what =~/^\$?Arg\s?.*/i) {
         # count arg
         confess "You can't mix numbered args and unnumbered args in the same signature" unless defined $arg_count;
         my $local = $arg_count;
@@ -157,7 +168,7 @@ has prepared_dependencies => (
         next;
       }
 
-      if($what =~/^\$?Capture\s?.*/) {
+      if($what =~/^\$?Capture\s?.*/i) {
         # count arg
         my $local = $capture_count;
         confess "You can't mix numbered captures and unnumbered captures in the same signature" unless defined $arg_count;
@@ -287,7 +298,7 @@ around ['match', 'match_captures'] => sub {
     my $required = $dependency=~m/not_required/ ? 0:1;
     if($required) {
       my $ret = $$dependency->($ctx, @args);
-      unless($ret) {
+      unless(defined $ret) {
         return 0;
       } else {
         push @resolved, $ret;
@@ -436,9 +447,13 @@ dependencies, but its here if you need it.
 
 =head2 $req
 
+=head2 $request
+
 The current L<Catalyst::Request>
 
 =head2 $res
+
+=head2 $request
 
 The current L<Catalyst::Response>
 
@@ -459,6 +474,8 @@ argument.
 One of the indexed args, where $args0 => $args[0];
 
 =head2 arg
+
+=head2 $arg
 
 If you use 'arg' without a numbered index, we assume an index based on the number
 of such 'un-numbered' args in your signature.  For example:
@@ -508,15 +525,31 @@ and un-numbered capture args in the same signature.
 
 =head2 $bodyData
 
+=head2 $bodydata
+
 $c->req->body_data
 
 =head2 $bodyParams
+
+=head2 $bodyparams
 
 $c->req->body_parameters
 
 =head2 $QueryParams
 
+=head2 $queryparams
+
 $c->req->query_parameters
+
+=head2 %query
+
+A hash of the information in $c->req->query_parameters.  Must be the last argument in the
+signature.
+
+=head2 %body
+
+A hash of the information in $c->req->body_data.  Must be the last argument in the
+signature.
 
 =head1 Accessing Components
 

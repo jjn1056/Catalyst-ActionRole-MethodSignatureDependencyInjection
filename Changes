@@ -1,5 +1,11 @@
 # This file documents the revision history for Perl extension Catalyst::ActionRole::MethodSignatureDependencyInjection.
 
+0.015 - 2015-08-27
+  - Added special variables $env (for PSGI $env), $state (for $c->state) as
+    well as a few more aliases for things like request and parameters.
+  - Required declaration now properly checks that a value is defined, and not
+    just true or false.
+
 0.014 - 2015-06-14
   - Shortcut to get the current view or model in the declaration, for example
     "sub myaction(View $v, Model $m) { .. }".
