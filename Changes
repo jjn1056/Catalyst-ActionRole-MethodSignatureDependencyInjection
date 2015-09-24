@@ -1,5 +1,9 @@
 # This file documents the revision history for Perl extension Catalyst::ActionRole::MethodSignatureDependencyInjection.
 
+0.016 - 2015-09-24
+  - More aggressively remove any temporary stash keys generated while matching
+    a signature.  Caused trouble with some views that looked at the stash.
+
 0.015 - 2015-08-27
   - Added special variables $env (for PSGI $env), $state (for $c->state) as
     well as a few more aliases for things like request and parameters.
