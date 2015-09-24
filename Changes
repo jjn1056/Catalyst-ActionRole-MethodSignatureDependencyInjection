@@ -1,5 +1,8 @@
 # This file documents the revision history for Perl extension Catalyst::ActionRole::MethodSignatureDependencyInjection.
 
+0.017 - 2015-09-24
+  - Even more careful use of the stash to hold temporary information
+
 0.016 - 2015-09-24
   - More aggressively remove any temporary stash keys generated while matching
     a signature.  Caused trouble with some views that looked at the stash.

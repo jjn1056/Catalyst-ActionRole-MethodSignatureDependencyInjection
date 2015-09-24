@@ -3,7 +3,7 @@ package Catalyst::ActionRole::MethodSignatureDependencyInjection;
 use Moose::Role;
 use Carp;
 
-our $VERSION = '0.016';
+our $VERSION = '0.017';
 
 has use_prototype => (
   is=>'ro',
@@ -308,9 +308,7 @@ around ['match', 'match_captures'] => sub {
     }
   }
 
-  my $stash_key = $self .'__method_signature_dependencies';
-  $ctx->stash($stash_key=>\@resolved);
-  push @{$ctx->stash->{__method_signature_dependencies_keys}}, $stash_key;
+  $ctx->stash->{__method_signature_dependencies_keys}->{"$self"} = \@resolved;
   return 1;
 };
 
@@ -318,10 +316,7 @@ around 'execute', sub {
   my ($orig, $self, $controller, $ctx, @args) = @_;
   my $stash_key = $self .'__method_signature_dependencies';
   my @dependencies = map { $_=~m/not_required/ ? $$_->($ctx, @args) : $_ }  
-    @{$ctx->stash->{$stash_key}};
-
-  # Clean up the temporary keys
-  delete @{$ctx->stash}{ @{$ctx->stash->{__method_signature_dependencies_keys}||[]}, '__method_signature_dependencies_keys' };
+    @{$ctx->stash->{__method_signature_dependencies_keys}->{"$self"}};
 
   return $self->$orig($controller, @dependencies);
 };
