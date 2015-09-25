@@ -3,7 +3,7 @@ package Catalyst::ActionRole::MethodSignatureDependencyInjection;
 use Moose::Role;
 use Carp;
 
-our $VERSION = '0.017';
+our $VERSION = '0.018';
 
 has use_prototype => (
   is=>'ro',
@@ -136,12 +136,12 @@ has prepared_dependencies => (
 
       #This will blow stuff up unless its the last...
       do { push @dependencies, $method->(sub { @{shift->req->args}}) ; next }  if lc($what) eq '@args';
-      do { push @dependencies, $method->(sub { @{shift->req->body_parameters}}); next }  if lc($what) eq '%bodyparams';
-      do { push @dependencies, $method->(sub { @{shift->req->body_data||+{}}}); next }  if lc($what) eq '%bodydata';
+      do { push @dependencies, $method->(sub { %{shift->req->body_parameters}}); next }  if lc($what) eq '%bodyparams';
+      do { push @dependencies, $method->(sub { %{shift->req->body_data||+{}}}); next }  if lc($what) eq '%bodydata';
 
-      do { push @dependencies, $method->(sub { @{shift->req->query_parameters}}); next }  if lc($what) eq '%queryparams';
-      do { push @dependencies, $method->(sub { @{shift->req->body_data||+{}}}); next }  if lc($what) eq '%body';
-      do { push @dependencies, $method->(sub { @{shift->req->query_parameters}}); next }  if lc($what) eq '%query';
+      do { push @dependencies, $method->(sub { %{shift->req->query_parameters}}); next }  if lc($what) eq '%queryparams';
+      do { push @dependencies, $method->(sub { %{shift->req->body_data||+{}}}); next }  if lc($what) eq '%body';
+      do { push @dependencies, $method->(sub { %{shift->req->query_parameters}}); next }  if lc($what) eq '%query';
 
       # Default view and model
       # For now default model / view can't be parameterized.
