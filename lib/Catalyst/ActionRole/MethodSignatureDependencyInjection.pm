@@ -99,6 +99,16 @@ has dependency_builder => (
       }
     }
 
+    #cope with older Perls trimming whitspace from prototypes.  I supposed
+    #this kills any models that end in 'required'...
+    if($self->use_prototype) {
+      @what = map {
+        $_=~m/\Srequired$/
+          ? do { $_=~s/required$//; "$_ required" }
+        : $_
+      } @what;
+    }
+
     return @what;
   }
 
@@ -117,6 +127,7 @@ has prepared_dependencies => (
     my $arg_count = 0;
     my $capture_count = 0;
     my @dependencies = ();
+
     while(my $what = shift @what) {
       my $method = $what =~m/required/ ? sub {required(shift) } : sub { not_required(shift) };
       do { push @dependencies, $method->(sub { shift }); next } if lc($what) eq '$ctx';

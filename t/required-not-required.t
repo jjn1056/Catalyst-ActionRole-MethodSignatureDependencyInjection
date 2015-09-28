@@ -27,8 +27,8 @@ use Test::Most;
    :Does(MethodSignatureDependencyInjection) UsePrototype(1)
   {
     my ($self, $null, $true) = @_;
-    Test::Most::ok !$null;
-    Test::Most::ok $true;
+    Test::Most::ok !$null, 'not null';
+    Test::Most::ok $true, 'true is true';
   }
 
   sub no_null_1( $c, Model::ReturnsNull, Model::ReturnsTrue) :Path('no_null')
@@ -77,13 +77,13 @@ use Catalyst::Test 'MyApp';
 
 {
   my ($res, $c) = ctx_request('/root/no_null');
-  is $res->content, 'no_null_1';
+  is $res->content, 'no_null_1', 'expected value no_null1';
 }
 
 
 {
   my ($res, $c) = ctx_request('/root/no_null_chain');
-  is $res->content, 'no_null_chain_1';
+  is $res->content, 'no_null_chain_1', 'expected value no_null_chain_1';
 }
 
 done_testing;
